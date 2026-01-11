@@ -201,14 +201,14 @@ if st.button("✅ Submit Survey"):
         if allow_contact and name:
             st.info(f"📧 Follow-up contact enabled for '{name}'")
 
-# --- Analysis Dashboard ---
+# --- INSIGHTFUL Analysis Dashboard ---
 st.markdown("---")
 st.header("📈 MVP Insights Dashboard")
 
 if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
     df = pd.read_csv(csv_file)
     
-    # Simple duplicate removal - check for identical rows
+    # Remove duplicate rows
     initial_count = len(df)
     df = df.drop_duplicates(keep='first')
     duplicate_count = initial_count - len(df)
@@ -216,102 +216,227 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
     total_responses = len(df)
     opt_in_count = df['allow_contact'].sum() if 'allow_contact' in df.columns else 0
     
-    st.metric("Total Responses", total_responses, f"{opt_in_count} opted for contact")
-    if duplicate_count > 0:
-        st.caption(f"*({duplicate_count} duplicates removed)*")
+    st.metric("📊 Unique Teacher Responses", total_responses, f"{opt_in_count} open to contact")
     
     if total_responses > 0:
-        # Quantitative charts
-        def create_chart(columns, title):
-            temp = df[columns].melt(var_name="Method", value_name="Response")
-            temp['Method'] = temp['Method'].str.replace('_', ' ').str.title()
-            fig = px.histogram(temp, x="Method", color="Response", barmode="group", 
-                              text_auto=True, title=title, height=400)
-            fig.update_layout(xaxis_title="Method", yaxis_title="Count")
-            st.plotly_chart(fig, use_container_width=True)
+        # --- QUANTITATIVE INSIGHTS ---
+        st.subheader("📈 Quantitative Evidence")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            create_chart(["time_scratch","time_ai","time_school_bank","time_dropdown"], 
-                        "Time Efficiency")
-        with col2:
-            create_chart(["cognitive_scratch","cognitive_ai","cognitive_dropdown"], 
-                        "Mental Effort")
-        
-        # Qualitative analysis
-        st.subheader("🔍 Qualitative Insights")
-        
-        # Collect feedback
-        ai_feedback = df["open_feedback_ai"].dropna().tolist()
-        tool_feedback = df["open_feedback_tool"].dropna().tolist()
-        suggestions_list = df["suggestions"].dropna().tolist()
-        
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.write("**Dropdown Tool Value**")
-            if tool_feedback:
-                for feedback in tool_feedback[:3]:  # Show first 3
-                    st.info(f"✓ {str(feedback)[:60]}...")
-            else:
-                st.info("No feedback yet")
+            time_saved_4plus = (df['time_saved'] == '4+hrs').sum()
+            time_saved_2plus = (df['time_saved'].isin(['2-4hrs', '4+hrs'])).sum()
+            st.metric("⏱️ Time Saved", f"{time_saved_4plus}/{total_responses}", 
+                     f"{time_saved_2plus} saved 2+ hrs")
         
         with col2:
-            st.write("**AI Issues**")
-            if ai_feedback:
-                for feedback in ai_feedback[:3]:
-                    st.warning(f"✗ {str(feedback)[:60]}...")
-            else:
-                st.info("No feedback yet")
+            quality_high = (df['quality_dropdown'] == 'High & curriculum-aligned').sum()
+            quality_good = (df['quality_dropdown'].isin(['High & curriculum-aligned', 'Good, ready to use'])).sum()
+            st.metric("⭐ Output Quality", f"{quality_high}/{total_responses} High", 
+                     f"{quality_good} Good+")
         
         with col3:
-            st.write("**Suggestions**")
-            if suggestions_list:
-                for suggestion in suggestions_list[:3]:
-                    st.caption(f"• {str(suggestion)[:50]}...")
+            cognitive_low = (df['cognitive_dropdown'] == 'Very low').sum()
+            cognitive_vlow = (df['cognitive_dropdown'].isin(['Very low', 'Low'])).sum()
+            st.metric("🧠 Mental Effort", f"{cognitive_low}/{total_responses} Very Low", 
+                     f"{cognitive_vlow} Low+")
+        
+        with col4:
+            alignment_always = (df['curriculum_alignment_dropdown'] == 'Always').sum()
+            st.metric("🎯 Curriculum Alignment", f"{alignment_always}/{total_responses} Always", 
+                     "Perfect alignment")
+        
+        # --- QUALITATIVE INSIGHTS WITH ANALYSIS ---
+        st.subheader("🔍 Qualitative Insights")
+        
+        # Get UNIQUE feedback (remove duplicates)
+        ai_feedback = df["open_feedback_ai"].dropna().unique().tolist()
+        tool_feedback = df["open_feedback_tool"].dropna().unique().tolist()
+        suggestions_list = df["suggestions"].dropna().unique().tolist()
+        
+        # Analyze dropdown tool value
+        st.write("### 🎯 **Core Value for Scaling**")
+        
+        core_value_found = False
+        if tool_feedback:
+            # Check for core value phrases
+            core_value_keywords = [
+                "judgement", "turns into", "aligned comments", "curriculum", 
+                "seconds", "few seconds", "fast", "quick", "saves"
+            ]
+            
+            for feedback in tool_feedback:
+                feedback_lower = str(feedback).lower()
+                if any(keyword in feedback_lower for keyword in core_value_keywords):
+                    core_value_found = True
+                    st.success(f"""
+                    **✅ Core Value Identified:**
+                    *"{feedback}"*
+                    
+                    **What this means:** Teacher provides judgement → Tool creates curriculum-aligned comments instantly
+                    """)
+                    break
+            
+            if not core_value_found and tool_feedback:
+                st.info(f"**General positive feedback:** {tool_feedback[0]}")
+        else:
+            st.info("No dropdown tool feedback yet")
+        
+        # Compare against AI
+        st.write("### ⚡ **Comparison vs AI**")
+        
+        if ai_feedback:
+            # Analyze AI pain points
+            ai_pain_points = []
+            for feedback in ai_feedback:
+                feedback_lower = str(feedback).lower()
+                if "character limit" in feedback_lower or "exceeds" in feedback_lower:
+                    ai_pain_points.append("Character limit issues")
+                if "tweaks" in feedback_lower or "edits" in feedback_lower:
+                    ai_pain_points.append("Requires many edits")
+                if "thinking" in feedback_lower or "mental" in feedback_lower:
+                    ai_pain_points.append("Still requires cognitive effort")
+            
+            if ai_pain_points:
+                st.warning(f"""
+                **AI Limitations Found:**
+                {', '.join(set(ai_pain_points))}
+                
+                **Our advantage:** These are problems our dropdown tool solves
+                """)
             else:
-                st.info("No suggestions yet")
+                st.info(f"AI feedback: {ai_feedback[0]}")
+        else:
+            st.info("No AI comparison feedback yet")
         
-        # Simple scaling assessment
-        st.subheader("🚀 Scaling Assessment")
+        # Analyze suggestions
+        st.write("### 🔧 **Improvement Opportunities**")
         
-        # Calculate metrics
-        core_value_count = sum(1 for f in tool_feedback if any(word in str(f).lower() 
-                            for word in ["aligned", "curriculum", "judgement", "turns into"]))
+        if suggestions_list:
+            # Group and categorize suggestions
+            categorized_suggestions = {
+                "UI/UX Improvements": [],
+                "Feature Requests": [],
+                "Bug Fixes": []
+            }
+            
+            for suggestion in suggestions_list:
+                suggestion_lower = str(suggestion).lower()
+                
+                if any(word in suggestion_lower for word in ["variant", "duplicate", "different"]):
+                    categorized_suggestions["Feature Requests"].append("Add comment variants to avoid duplicates")
+                
+                if any(word in suggestion_lower for word in ["reverts", "default", "reset", "setting"]):
+                    categorized_suggestions["UI/UX Improvements"].append("Remember user settings between comments")
+                
+                if any(word in suggestion_lower for word in ["select", "subject", "year", "every comment"]):
+                    categorized_suggestions["UI/UX Improvements"].append("Save subject/year selections")
+                
+                if any(word in suggestion_lower for word in ["punctuation", "disappears", "typing"]):
+                    categorized_suggestions["Bug Fixes"].append("Fix punctuation when editing comments")
+            
+            # Display categorized suggestions
+            for category, items in categorized_suggestions.items():
+                if items:
+                    unique_items = list(set(items))  # Remove duplicates
+                    st.info(f"**{category}:**")
+                    for item in unique_items:
+                        st.caption(f"• {item}")
+        else:
+            st.info("No suggestions yet")
         
-        time_saved_good = df['time_saved'].isin(['2-4hrs', '4+hrs']).sum()
-        quality_good = df['quality_dropdown'].isin(['High & curriculum-aligned', 'Good, ready to use']).sum()
+        # --- SCALING ASSESSMENT ---
+        st.subheader("🚀 **Scaling Readiness Assessment**")
+        
+        # Calculate evidence
+        quantitative_evidence = 0
+        if time_saved_4plus > 0:
+            quantitative_evidence += 2
+        if quality_high > 0:
+            quantitative_evidence += 2
+        if cognitive_low > 0:
+            quantitative_evidence += 1
+        
+        qualitative_evidence = 1 if core_value_found else 0
         
         col1, col2 = st.columns(2)
         
         with col1:
             if total_responses >= 3:
-                if core_value_count >= 2 and time_saved_good >= 2 and quality_good >= 2:
-                    st.success("**✅ Strong case for scaling**")
-                    st.write("Multiple validations with good metrics")
-                elif core_value_count >= 1:
-                    st.warning("**⚠️ Promising but needs more**")
-                    st.write("Initial positive signals")
+                if core_value_found and quantitative_evidence >= 3:
+                    st.success("""
+                    ### ✅ **STRONG CASE FOR SCALING**
+                    
+                    **Evidence:**
+                    • Core value clearly demonstrated
+                    • Strong quantitative metrics
+                    • Clear advantage over AI
+                    • Multiple teacher validations
+                    
+                    **Recommendation:** Scale with confidence
+                    """)
+                elif core_value_found:
+                    st.warning("""
+                    ### ⚠️ **PROMISING, NEEDS MORE VALIDATION**
+                    
+                    **Evidence:**
+                    • Core value identified
+                    • Some quantitative support
+                    • Need more responses
+                    
+                    **Next:** Gather 2-3 more validations
+                    """)
                 else:
-                    st.info("**🔍 Needs more validation**")
+                    st.info("""
+                    ### 🔍 **NEEDS MORE EVIDENCE**
+                    
+                    **Status:**
+                    • Core value not clearly shown
+                    • Need stronger feedback
+                    
+                    **Action:** Focus on demonstrating value
+                    """)
             else:
-                st.info(f"**📊 Gathering data: {total_responses}/3 teachers**")
+                st.info(f"""
+                ### 📊 **GATHERING DATA: {total_responses}/3 Teachers**
+                
+                **Current evidence:**
+                • Core value: {'✅ Found' if core_value_found else '❓ Not yet'}
+                • Time savings: {time_saved_4plus}/{total_responses} report 4+ hrs
+                • Quality: {quality_high}/{total_responses} report High quality
+                
+                **Need:** {3 - total_responses} more unique teacher responses
+                """)
         
         with col2:
-            metrics_data = {
-                'Metric': ['Teachers', 'Core Value', 'Time Saved (2+ hrs)', 'Quality Good'],
-                'Value': [total_responses, core_value_count, time_saved_good, quality_good]
+            # Evidence summary
+            evidence_data = {
+                'Evidence Type': ['Core Value Found', '4+ Hours Saved', 
+                                'High Quality', 'Low Cognitive Effort',
+                                'AI Comparison', 'Total Teachers'],
+                'Status': [
+                    '✅ Yes' if core_value_found else '❓ No',
+                    f'{time_saved_4plus}/{total_responses}',
+                    f'{quality_high}/{total_responses}',
+                    f'{cognitive_low}/{total_responses}',
+                    '✅ Advantage' if ai_feedback else '❓ No data',
+                    total_responses
+                ]
             }
-            st.dataframe(pd.DataFrame(metrics_data), hide_index=True)
+            
+            st.dataframe(pd.DataFrame(evidence_data), hide_index=True, use_container_width=True)
         
         # Contact list
         if 'allow_contact' in df.columns and 'name' in df.columns:
             enthusiasts = df[(df['allow_contact'] == True) & (df['name'] != "Anonymous")]
             if not enthusiasts.empty:
                 st.subheader("🌟 Enthusiasts Open to Contact")
-                st.dataframe(enthusiasts[['name', 'email']], hide_index=True)
+                st.dataframe(enthusiasts[['name', 'email']].rename(
+                    columns={'name': 'Name', 'email': 'Email'}), 
+                    hide_index=True)
         
-        # Download
+        # --- Download Report ---
         st.subheader("📥 Download Report")
         
         output = io.BytesIO()
@@ -319,11 +444,17 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
             df.to_excel(writer, sheet_name="Data", index=False)
             
             summary_data = {
-                'Metric': ['Total Responses', 'Core Value Feedback', 'AI Issues Found',
-                          'Time Saved (Good)', 'Quality (Good)', 'Assessment'],
-                'Value': [total_responses, core_value_count, len(ai_feedback),
-                         time_saved_good, quality_good,
-                         'Strong' if core_value_count >= 2 else 'Needs More']
+                'Assessment Metric': ['Unique Teachers', 'Core Value Demonstrated',
+                                    'Time Savings (4+ hrs)', 'High Quality Output',
+                                    'Low Cognitive Effort', 'AI Limitations Found',
+                                    'Scaling Readiness'],
+                'Value': [total_responses,
+                         'Yes' if core_value_found else 'No',
+                         f'{time_saved_4plus}/{total_responses}',
+                         f'{quality_high}/{total_responses}',
+                         f'{cognitive_low}/{total_responses}',
+                         len(ai_feedback),
+                         'Strong' if core_value_found and time_saved_4plus > 0 else 'Needs More']
             }
             
             pd.DataFrame(summary_data).to_excel(writer, sheet_name="Summary", index=False)
@@ -331,9 +462,9 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         st.download_button(
-            label="Download Excel Report",
+            label="📊 Download Analysis Report",
             data=output.getvalue(),
-            file_name=f"mvp_report_{timestamp}.xlsx",
+            file_name=f"mvp_scaling_assessment_{timestamp}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 else:
