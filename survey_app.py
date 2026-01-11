@@ -32,7 +32,7 @@ All responses are **anonymous**, names are encoded and used only for follow-up i
 """)
 
 # Encode name for anonymity
-name_raw = st.text_input("Your Name (for follow-up, optional):")
+name_raw = st.text_input("Your Name (optional, for follow-up):")
 name = hashlib.sha256(name_raw.encode()).hexdigest() if name_raw else ""
 
 # Methods used
@@ -140,19 +140,13 @@ if not df.empty:
     # Methods used
     st.subheader("Methods Used by Teachers")
     method_counts = pd.Series(','.join(df['methods']).split(',')).value_counts()
-    fig_methods = px.bar(
-        x=method_counts.index, y=method_counts.values,
-        labels={'x':'Method','y':'Count'},
-        title="Methods Used"
-    )
+    fig_methods = px.bar(x=method_counts.index, y=method_counts.values, labels={'x':'Method','y':'Count'}, title="Methods Used")
     st.plotly_chart(fig_methods)
 
     # Time efficiency (dropdown)
     st.subheader("Time per Comment - Dropdown Tool")
     time_counts = df['time_dropdown'].value_counts()
-    fig_time = px.bar(x=time_counts.index, y=time_counts.values,
-                      labels={'x':'Time','y':'Count'},
-                      title="Dropdown Tool - Time per Comment")
+    fig_time = px.bar(x=time_counts.index, y=time_counts.values, labels={'x':'Time','y':'Count'}, title="Dropdown Tool - Time per Comment")
     st.plotly_chart(fig_time)
 
 # --- Qualitative Analysis ---
@@ -164,7 +158,6 @@ qualitative_comments = pd.concat([
     df[["suggestions"]].rename(columns={"suggestions":"Comment"})
 ], ignore_index=True)
 
-# Classify comments
 strength_keywords = ["helpful", "fast", "saves", "consistent", "aligned", "structured", "reduces stress", "efficient", "accurate"]
 limitation_keywords = ["tedious", "glitch", "exceeds", "slow", "extra work", "inconsistent", "manual", "error", "bug", "needs tweaks"]
 
@@ -180,22 +173,14 @@ def classify_comment(comment):
 
 qualitative_comments["Category"] = qualitative_comments["Comment"].apply(classify_comment)
 
-def highlight_category(row):
-    if row["Category"] == "Value":
-        return ["background-color: #a8e6a3"]*2
-    elif row["Category"] == "Limitation":
-        return ["background-color: #f4a2a2"]*2
-    else:
-        return [""]*2
-
+# Show as markdown with color
 st.write("**Value / Strengths:**")
-st.dataframe(
-    qualitative_comments[qualitative_comments["Category"]=="Value"].style.apply(highlight_category, axis=1)
-)
+for _, row in qualitative_comments[qualitative_comments["Category"]=="Value"].iterrows():
+    st.markdown(f"<span style='color:green'>- {row['Comment']}</span>", unsafe_allow_html=True)
+
 st.write("**Limitations / Areas for Improvement:**")
-st.dataframe(
-    qualitative_comments[qualitative_comments["Category"]=="Limitation"].style.apply(highlight_category, axis=1)
-)
+for _, row in qualitative_comments[qualitative_comments["Category"]=="Limitation"].iterrows():
+    st.markdown(f"<span style='color:red'>- {row['Comment']}</span>", unsafe_allow_html=True)
 
 # --- Export Full Report ---
 st.subheader("Download Full MVP Survey Report (Excel)")
