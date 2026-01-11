@@ -1,96 +1,114 @@
-# survey_app.py
-
+# survey_app_mvp.py
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
-import io
-import hashlib
 
-# --- CSV file setup ---
+# --- CSV setup ---
 csv_file = "survey_data.csv"
+
 columns = [
-    "name", "methods",
-    "time_scratch","time_ai","time_school_bank","time_dropdown",
-    "stress_scratch","stress_ai","stress_dropdown",
-    "cognitive_scratch","cognitive_ai","cognitive_dropdown",
-    "quality_scratch","quality_ai","quality_dropdown",
-    "character_accuracy_scratch","character_accuracy_ai","character_accuracy_dropdown",
-    "curriculum_alignment_scratch","curriculum_alignment_ai","curriculum_alignment_dropdown",
-    "biggest_cognitive_relief","biggest_time_quality","time_saved",
-    "open_feedback_ai","open_feedback_tool","suggestions"
+    "name",
+    "methods",
+    "time_scratch",
+    "time_ai",
+    "time_school_bank",
+    "time_dropdown",
+    "cognitive_scratch",
+    "cognitive_ai",
+    "cognitive_dropdown",
+    "quality_scratch",
+    "quality_ai",
+    "quality_dropdown",
+    "character_accuracy_scratch",
+    "character_accuracy_ai",
+    "character_accuracy_dropdown",
+    "curriculum_alignment_scratch",
+    "curriculum_alignment_ai",
+    "curriculum_alignment_dropdown",
+    "stress_scratch",
+    "stress_ai",
+    "stress_dropdown",
+    "biggest_cognitive_relief",
+    "biggest_time_quality",
+    "time_saved",
+    "open_feedback_ai",
+    "open_feedback_tool",
+    "suggestions",
 ]
 
+# Create CSV if it doesn't exist
 if not os.path.exists(csv_file):
     pd.DataFrame(columns=columns).to_csv(csv_file, index=False)
 
-# --- Survey Form ---
-st.title("Report Writing Methods - Teacher Experience Survey (MVP Feedback)")
+# --- Streamlit App ---
+st.title("Report Writing MVP Survey")
 st.write("""
-This survey collects feedback on your experience using different methods for writing report comments.  
-All responses are **anonymous**, names are encoded and used only for follow-up if you allow it.
+**Purpose:** Collect teacher experience to validate the MVP, identify strengths, and guide improvements.
+All responses are **anonymous**. Names are encoded for private follow-up only.
 """)
 
-# Encode name for anonymity
-name_raw = st.text_input("Your Name (optional, for follow-up):")
-name = hashlib.sha256(name_raw.encode()).hexdigest() if name_raw else ""
+# --- User Inputs ---
+name = st.text_input("Your Name (optional, encoded for follow-up only)")
 
-# Methods used
 methods = st.multiselect(
     "Which methods have you used to write report comments?",
-    ["Writing from scratch","ChatGPT/AI prompts","School comment banks","Previous year's comments","Dropdown tool","Other"]
+    ["Writing from scratch", "ChatGPT/AI prompts", "School comment banks", "Previous year's comments", "Dropdown tool", "Other"]
 )
 
-# Time per comment
-time_options = ["<30sec","30sec-1min","1-2min","2-5min","5-10min","10+min","N/A"]
-time_scratch = st.selectbox("Writing from scratch - Time per comment:", time_options)
-time_ai = st.selectbox("ChatGPT/AI prompts - Time per comment:", time_options)
-time_school_bank = st.selectbox("School comment banks - Time per comment:", time_options)
-time_dropdown = st.selectbox("Dropdown tool - Time per comment:", time_options)
+time_scratch = st.selectbox("Writing from scratch - Time per comment:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
+time_ai = st.selectbox("ChatGPT/AI - Time per comment:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
+time_school_bank = st.selectbox("School comment banks - Time per comment:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
+time_dropdown = st.selectbox("Dropdown tool - Time per comment:", ["<30sec","30sec-1min","1-2min","2+min","Didn't use"])
 
-# Cognitive load
-cognitive_options = ["Very low","Low","Moderate","High","Exhausting","N/A"]
-cognitive_scratch = st.selectbox("Writing from scratch - Mental effort:", cognitive_options)
-cognitive_ai = st.selectbox("ChatGPT/AI - Mental effort:", cognitive_options)
-cognitive_dropdown = st.selectbox("Dropdown tool - Mental effort:", cognitive_options)
+cognitive_scratch = st.selectbox("Writing from scratch - Mental effort:", ["Exhausting","High","Moderate","Low","Didn't use"])
+cognitive_ai = st.selectbox("ChatGPT/AI - Mental effort:", ["Exhausting","High","Moderate","Low","Didn't use"])
+cognitive_dropdown = st.selectbox("Dropdown tool - Mental effort:", ["Very low","Low","Moderate","High","Didn't use"])
 
-# Quality
-quality_options = ["High & consistent","High quality but inconsistent","Generally good","Variable","Often rushed/generic","Too generic/not suitable","Haven't used","N/A"]
-quality_scratch = st.selectbox("Writing from scratch - Quality:", quality_options)
-quality_ai = st.selectbox("ChatGPT/AI - Quality:", quality_options)
-quality_dropdown = st.selectbox("Dropdown tool - Quality:", quality_options)
+quality_scratch = st.selectbox("Writing from scratch - Quality:", ["High quality and consistent","High quality but inconsistent","Generally good","Variable","Often rushed/generic","Didn't use"])
+quality_ai = st.selectbox("ChatGPT/AI - Quality:", ["High after edits","Good with minor tweaks","Acceptable","Too generic/not suitable","Haven't used AI","Didn't use"])
+quality_dropdown = st.selectbox("Dropdown tool - Quality:", ["High & curriculum-aligned","Good, ready to use","Acceptable with minor tweaks","Too generic","Didn't use"])
 
-# Character accuracy
-char_accuracy_options = ["Always within range","Usually within range","Often exceeds/under","Always wrong","N/A"]
-character_accuracy_scratch = st.selectbox("Writing from scratch - Character count accuracy:", char_accuracy_options)
-character_accuracy_ai = st.selectbox("ChatGPT/AI - Character count accuracy:", char_accuracy_options)
-character_accuracy_dropdown = st.selectbox("Dropdown tool - Character count accuracy:", char_accuracy_options)
+character_accuracy_scratch = st.selectbox("Writing from scratch - Character count accuracy:", ["Within range","Exceeds range","Didn't use"])
+character_accuracy_ai = st.selectbox("ChatGPT/AI - Character count accuracy:", ["Within range","Exceeds range","Didn't use"])
+character_accuracy_dropdown = st.selectbox("Dropdown tool - Character count accuracy:", ["Within range","Exceeds range","Didn't use"])
 
-# Curriculum alignment
-alignment_options = ["Always","Usually","Sometimes","Rarely","N/A"]
-curriculum_alignment_scratch = st.selectbox("Writing from scratch - Curriculum alignment:", alignment_options)
-curriculum_alignment_ai = st.selectbox("ChatGPT/AI - Curriculum alignment:", alignment_options)
-curriculum_alignment_dropdown = st.selectbox("Dropdown tool - Curriculum alignment:", alignment_options)
+curriculum_alignment_scratch = st.selectbox("Writing from scratch - Curriculum alignment:", ["Always","Usually","Sometimes","Rarely","Didn't use"])
+curriculum_alignment_ai = st.selectbox("ChatGPT/AI - Curriculum alignment:", ["Always","Usually","Sometimes","Rarely","Didn't use"])
+curriculum_alignment_dropdown = st.selectbox("Dropdown tool - Curriculum alignment:", ["Always","Usually","Sometimes","Rarely","Didn't use"])
 
-# Stress
-stress_options = ["Very high","High","Moderate","Low","N/A"]
-stress_scratch = st.selectbox("Stress level - Writing from scratch:", stress_options)
-stress_ai = st.selectbox("Stress level - ChatGPT/AI prompts:", stress_options)
-stress_dropdown = st.selectbox("Stress level - Dropdown tool:", stress_options)
+stress_scratch = st.selectbox("Stress level - Writing from scratch:", ["Very high","High","Moderate","Low","Didn't use"])
+stress_ai = st.selectbox("Stress level - ChatGPT/AI prompts:", ["Very high","High","Moderate","Low","Didn't use"])
+stress_dropdown = st.selectbox("Stress level - Dropdown tool:", ["Very high","High","Moderate","Low","Didn't use"])
 
-# Other comparisons
 biggest_cognitive_relief = st.selectbox("Biggest cognitive relief from dropdown tool:", [
     "No need to decide what to include/exclude",
     "Character count automatically perfect",
     "No rephrasing/editing needed",
     "Curriculum-aligned language pre-written",
     "Clear structure removes blank page stress",
-    "Consistency across all students"
+    "Consistency across all students",
+    "Didn't use"
 ])
-biggest_time_quality = st.selectbox("Best ratio of time-to-quality:", ["Writing from scratch","ChatGPT/AI","Dropdown tool","Other"])
-time_saved = st.selectbox("Time saved for 30 students vs previous method:", ["No time saved","30min-1hr","1-2hrs","2-4hrs","4+hrs","N/A"])
 
-# Open feedback
+biggest_time_quality = st.selectbox("Best ratio of time-to-quality:", [
+    "Writing from scratch",
+    "ChatGPT/AI",
+    "Dropdown tool",
+    "Other",
+    "Didn't use"
+])
+
+time_saved = st.selectbox("Time saved for 30 students vs previous method:", [
+    "No time saved",
+    "30min-1hr",
+    "1-2hrs",
+    "2-4hrs",
+    "4+hrs",
+    "Didn't use"
+])
+
+# Open feedback fields
 open_feedback_ai = st.text_area("One thing ChatGPT/AI does WRONG:")
 open_feedback_tool = st.text_area("One thing dropdown tool does BETTER:")
 suggestions = st.text_area("Any suggestions for improvement:")
@@ -127,27 +145,37 @@ if st.button("Submit Survey"):
         "open_feedback_tool": open_feedback_tool,
         "suggestions": suggestions
     }
-    df = df.append(new_row, ignore_index=True)
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
     df.to_csv(csv_file, index=False)
     st.success("Survey submitted! Thank you for your feedback.")
 
-# --- Quantitative Charts ---
-st.header("Quick Analysis of Responses")
-
+# --- Analysis ---
+st.header("MVP Insights Dashboard")
 df = pd.read_csv(csv_file)
-if not df.empty:
 
-    # Methods used
-    st.subheader("Methods Used by Teachers")
-    method_counts = pd.Series(','.join(df['methods']).split(',')).value_counts()
-    fig_methods = px.bar(x=method_counts.index, y=method_counts.values, labels={'x':'Method','y':'Count'}, title="Methods Used")
-    st.plotly_chart(fig_methods)
+# Quantitative charts
+def create_chart(columns, title):
+    temp = df[columns].melt(var_name="Method", value_name="Response")
+    fig = px.histogram(temp, x="Method", color="Response", barmode="group", text_auto=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-    # Time efficiency (dropdown)
-    st.subheader("Time per Comment - Dropdown Tool")
-    time_counts = df['time_dropdown'].value_counts()
-    fig_time = px.bar(x=time_counts.index, y=time_counts.values, labels={'x':'Time','y':'Count'}, title="Dropdown Tool - Time per Comment")
-    st.plotly_chart(fig_time)
+st.subheader("Time Efficiency Comparison")
+create_chart(["time_scratch","time_ai","time_school_bank","time_dropdown"], "Time per Comment")
+
+st.subheader("Cognitive Load Comparison")
+create_chart(["cognitive_scratch","cognitive_ai","cognitive_dropdown"], "Cognitive Effort")
+
+st.subheader("Quality Comparison")
+create_chart(["quality_scratch","quality_ai","quality_dropdown"], "Output Quality")
+
+st.subheader("Stress Level Comparison")
+create_chart(["stress_scratch","stress_ai","stress_dropdown"], "Stress Level")
+
+st.subheader("Character Accuracy Comparison")
+create_chart(["character_accuracy_scratch","character_accuracy_ai","character_accuracy_dropdown"], "Character Accuracy")
+
+st.subheader("Curriculum Alignment Comparison")
+create_chart(["curriculum_alignment_scratch","curriculum_alignment_ai","curriculum_alignment_dropdown"], "Curriculum Alignment")
 
 # --- Qualitative Analysis ---
 st.subheader("Qualitative Insights (MVP Evaluation)")
@@ -158,6 +186,7 @@ qualitative_comments = pd.concat([
     df[["suggestions"]].rename(columns={"suggestions":"Comment"})
 ], ignore_index=True)
 
+# Classify simple strengths/limitations
 strength_keywords = ["helpful", "fast", "saves", "consistent", "aligned", "structured", "reduces stress", "efficient", "accurate"]
 limitation_keywords = ["tedious", "glitch", "exceeds", "slow", "extra work", "inconsistent", "manual", "error", "bug", "needs tweaks"]
 
@@ -173,25 +202,25 @@ def classify_comment(comment):
 
 qualitative_comments["Category"] = qualitative_comments["Comment"].apply(classify_comment)
 
-# Show as markdown with color
-st.write("**Value / Strengths:**")
-for _, row in qualitative_comments[qualitative_comments["Category"]=="Value"].iterrows():
-    st.markdown(f"<span style='color:green'>- {row['Comment']}</span>", unsafe_allow_html=True)
+st.write("**Value (what works well):**")
+st.table(qualitative_comments[qualitative_comments["Category"]=="Value"].head(5))
 
-st.write("**Limitations / Areas for Improvement:**")
-for _, row in qualitative_comments[qualitative_comments["Category"]=="Limitation"].iterrows():
-    st.markdown(f"<span style='color:red'>- {row['Comment']}</span>", unsafe_allow_html=True)
+st.write("**Limitations (pain points / areas to improve):**")
+st.table(qualitative_comments[qualitative_comments["Category"]=="Limitation"].head(5))
 
-# --- Export Full Report ---
-st.subheader("Download Full MVP Survey Report (Excel)")
+# --- Download Excel ---
+import io
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    # Quantitative
     df.to_excel(writer, sheet_name="Raw Survey Data", index=False)
+    # Qualitative
     qualitative_comments.to_excel(writer, sheet_name="Qualitative Insights", index=False)
-processed_data = output.getvalue()
+    writer.save()
+    processed_data = output.getvalue()
 
 st.download_button(
-    label="Download Report",
+    label="Download Full MVP Survey Report (Excel)",
     data=processed_data,
     file_name="mvp_survey_report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
