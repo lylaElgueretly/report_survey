@@ -3,15 +3,10 @@ import streamlit as st
 import pandas as pd
 import os
 import plotly.express as px
-import io
 
 # --- SESSION STATE FOR SAFE RERUN ---
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
-
-if st.session_state.submitted:
-    st.session_state.submitted = False
-    st.experimental_rerun()
 
 # CSV file path
 csv_file = "survey_data.csv"
@@ -115,8 +110,9 @@ if st.button("Submit Survey"):
         df.to_csv(csv_file, index=False)
         st.success("Survey submitted! Thank you for your feedback.")
         st.session_state.submitted = True
+        st.experimental_rerun()  # Reset form inputs
 
-# --- ENHANCED ANALYSIS & EXPORT ---
+# --- ANALYSIS & CHARTS ---
 st.header("Survey Analysis & Results")
 
 df = pd.read_csv(csv_file)
@@ -129,9 +125,12 @@ if not df.empty:
     method_counts = method_series.value_counts()
     fig_methods = px.pie(values=method_counts.values, names=method_counts.index, title="Methods Used by Teachers")
     st.plotly_chart(fig_methods, use_container_width=True)
-    buf = io.BytesIO()
-    fig_methods.write_image(buf, format="png")
-    st.download_button("Download Methods Chart", data=buf, file_name="methods_chart.png", mime="image/png")
+    st.download_button(
+        label="Download Methods Chart (HTML)",
+        data=fig_methods.to_html(),
+        file_name="methods_chart.html",
+        mime="text/html"
+    )
 
     # Helper function for grouped bar charts
     def plot_grouped_bar(df, metrics, title, order=None):
@@ -142,9 +141,12 @@ if not df.empty:
                            text_auto=True, category_orders={"Response": order})
         fig.update_layout(title=title, xaxis_title="", yaxis_title="Count")
         st.plotly_chart(fig, use_container_width=True)
-        buf = io.BytesIO()
-        fig.write_image(buf, format="png")
-        st.download_button(f"Download '{title}' Chart", data=buf, file_name=f"{title.replace(' ','_')}.png", mime="image/png")
+        st.download_button(
+            label=f"Download '{title}' Chart (HTML)",
+            data=fig.to_html(),
+            file_name=f"{title.replace(' ','_')}.html",
+            mime="text/html"
+        )
 
     # --- Charts for metrics ---
     plot_grouped_bar(df, ["time_scratch","time_ai","time_school_bank","time_dropdown"], "Time per Comment Comparison",
@@ -183,4 +185,4 @@ if not df.empty:
     top_relief = relief_counts.idxmax()
     summary += f"\nMost reported cognitive relief from dropdown tool: {top_relief}\n"
 
-    st.text_area("Survey Summary", value=summary, height=200)
+    st.text_area("Survey Summary", value=summary, height=250)
