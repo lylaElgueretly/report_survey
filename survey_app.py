@@ -6,13 +6,6 @@ from io import BytesIO
 import hashlib
 import plotly.express as px
 
-# Optional sentiment analysis
-try:
-    from textblob import TextBlob
-    SENTIMENT_AVAILABLE = True
-except:
-    SENTIMENT_AVAILABLE = False
-
 # --- SESSION STATE ---
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
@@ -37,7 +30,6 @@ columns = [
 # --- CREATE CSV FILES IF MISSING ---
 if not os.path.exists(csv_file):
     pd.DataFrame(columns=columns).to_csv(csv_file, index=False)
-
 if not os.path.exists(lookup_file):
     pd.DataFrame(columns=["anon_id","name"]).to_csv(lookup_file, index=False)
 
@@ -54,7 +46,6 @@ name = st.text_input("Your Name (for potential endorsement requests later):")
 # --- ENCODE NAME ---
 def encode_name(name_str):
     return hashlib.sha256(name_str.encode('utf-8')).hexdigest()[:10]
-
 anon_id = encode_name(name) if name else ""
 
 # --- HELPER TO ADD "Did not use" OPTION ---
@@ -151,6 +142,7 @@ st.header("Survey Analysis & Full Report")
 df = pd.read_csv(csv_file)
 
 if not df.empty:
+
     # --- Quantitative Charts ---
     st.subheader("Quantitative Analysis")
     def create_chart(columns_list, title, order=None):
@@ -170,17 +162,40 @@ if not df.empty:
     create_chart(["character_accuracy_scratch","character_accuracy_ai","character_accuracy_dropdown"], "Character Accuracy")
     create_chart(["curriculum_alignment_scratch","curriculum_alignment_ai","curriculum_alignment_dropdown"], "Curriculum Alignment")
 
-    # --- Qualitative Analysis ---
-    st.subheader("Qualitative Analysis")
+    # --- Qualitative Thematic Analysis ---
+    st.subheader("Qualitative Thematic Analysis")
     qualitative_cols = ["open_feedback_ai","open_feedback_tool","suggestions"]
-    for col in qualitative_cols:
-        responses = df[col].dropna().astype(str)
-        st.markdown(f"**{col.replace('_',' ').title()}:**")
-        for r in responses:
-            st.write(f"- {r}")
+    themes_keywords = {
+        "Time-saving": ["quick","faster","save time","speed"],
+        "Character limit issues": ["character","limit","exceeds","truncate","cut off"],
+        "Usability / UI problems": ["click","dropdown","interface","select","revert","default","navigation"],
+        "Editing / Quality tweaks": ["edit","tweak","adjust","correction","fix"],
+        "Consistency / Alignment": ["consistent","aligned","curriculum","standardized"],
+        "Other": []
+    }
+    theme_counts = {k: 0 for k in themes_keywords.keys()}
 
-    # --- Excel Export ---
+    for col in qualitative_cols:
+        for response in df[col].dropna().astype(str):
+            matched = False
+            lower_resp = response.lower()
+            for theme, keywords in themes_keywords.items():
+                if any(k in lower_resp for k in keywords):
+                    theme_counts[theme] += 1
+                    matched = True
+            if not matched:
+                theme_counts["Other"] += 1
+
+    theme_df = pd.DataFrame.from_dict(theme_counts, orient='index', columns=['Count']).sort_values(by='Count', ascending=False)
+    st.table(theme_df)
+
+    # Plot qualitative themes
+    fig_themes = px.bar(theme_df, x=theme_df.index, y='Count', text='Count', title="Qualitative Themes")
+    st.plotly_chart(fig_themes, use_container_width=True)
+
+    # --- Export Full Report to Excel ---
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, sheet_name='Raw Data', index=False)
+        theme_df.to_excel(writer, sheet_name='Qualitative Themes')
     st.download_button("Download Full Survey Report (Excel)", data=output.getvalue(), file_name="full_survey_report.xlsx")
