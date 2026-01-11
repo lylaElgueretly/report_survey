@@ -1,7 +1,6 @@
-# app.py
+# survey_app.py
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import os
 
 # CSV file path
@@ -151,9 +150,11 @@ if st.button("Submit Survey"):
             "open_feedback_tool": open_feedback_tool,
             "suggestions": suggestions
         }
-        df = df.append(new_row, ignore_index=True)
+        # Use pd.concat instead of deprecated append()
+        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         df.to_csv(csv_file, index=False)
         st.success("Survey submitted! Thank you for your feedback.")
+        st.experimental_rerun()  # Reset form inputs
 
 # --- BASIC CHARTS ---
 st.header("Quick Analysis of Responses")
@@ -161,7 +162,7 @@ df = pd.read_csv(csv_file)
 
 if not df.empty:
     st.subheader("Methods Used by Teachers")
-    method_counts = pd.Series(','.join(df['methods']).split(',')).value_counts()
+    method_counts = pd.Series([m.strip() for m in ','.join(df['methods']).split(',')]).value_counts()
     st.bar_chart(method_counts)
 
     st.subheader("Time Efficiency (Dropdown Tool)")
