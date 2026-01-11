@@ -56,34 +56,73 @@ methods = st.multiselect(
 )
 
 # SECTION 2: Time Efficiency
-time_scratch = st.selectbox("Writing from scratch - Time per comment:", ["<2min","2-5min","5-10min","10+min"])
-time_ai = st.selectbox("ChatGPT/AI prompts - Time per comment:", ["<2min","2-5min","5-10min","10+min"])
-time_school_bank = st.selectbox("School comment banks - Time per comment:", ["<2min","2-5min","5-10min","10+min"])
-time_dropdown = st.selectbox("This dropdown tool - Time per comment:", ["<30sec","30sec-1min","1-2min","2+min"])
+time_scratch = st.selectbox(
+    "Writing from scratch - Time per comment:",
+    ["<2min","2-5min","5-10min","10+min","Did not use"]
+)
+time_ai = st.selectbox(
+    "ChatGPT/AI prompts - Time per comment:",
+    ["<2min","2-5min","5-10min","10+min","Did not use"]
+)
+time_school_bank = st.selectbox(
+    "School comment banks - Time per comment:",
+    ["<2min","2-5min","5-10min","10+min","Did not use"]
+)
+time_dropdown = st.selectbox(
+    "This dropdown tool - Time per comment:",
+    ["<30sec","30sec-1min","1-2min","2+min","Did not use"]
+)
 
 # SECTION 3: Cognitive Load
-cognitive_scratch = st.selectbox("Writing from scratch - Mental effort:", ["Exhausting","High","Moderate","Low"])
-cognitive_ai = st.selectbox("ChatGPT/AI - Mental effort:", ["Exhausting","High","Moderate","Low"])
-cognitive_dropdown = st.selectbox("Dropdown tool - Mental effort:", ["Very low","Low","Moderate","High"])
+cognitive_scratch = st.selectbox("Writing from scratch - Mental effort:", ["Exhausting","High","Moderate","Low","Did not use"])
+cognitive_ai = st.selectbox("ChatGPT/AI - Mental effort:", ["Exhausting","High","Moderate","Low","Did not use"])
+cognitive_dropdown = st.selectbox("Dropdown tool - Mental effort:", ["Very low","Low","Moderate","High","Did not use"])
 
 # SECTION 4: Quality of Output
-quality_scratch = st.selectbox("Writing from scratch - Quality:", ["High quality but inconsistent","Generally good","Variable","Often rushed/generic"])
-quality_ai = st.selectbox("ChatGPT/AI - Quality:", ["High after edits","Good with minor tweaks","Acceptable","Too generic/not suitable","Haven't used AI"])
-quality_dropdown = st.selectbox("Dropdown tool - Quality:", ["High & curriculum-aligned","Good, ready to use","Acceptable with minor tweaks","Too generic"])
+quality_scratch = st.selectbox(
+    "Writing from scratch - Quality:",
+    ["High & consistent","High quality but inconsistent","Generally good","Variable","Often rushed/generic","Did not use"]
+)
+quality_ai = st.selectbox(
+    "ChatGPT/AI - Quality:",
+    ["High after edits","Good with minor tweaks","Acceptable","Too generic/not suitable","Haven't used AI","Did not use"]
+)
+quality_dropdown = st.selectbox(
+    "Dropdown tool - Quality:",
+    ["High & curriculum-aligned","Good, ready to use","Acceptable with minor tweaks","Too generic","Did not use"]
+)
 
 # SECTION 5: Character & Curriculum Alignment
-character_accuracy_scratch = st.selectbox("Writing from scratch - Character count accuracy:", ["Always","Usually","Often","Always wrong"])
-character_accuracy_ai = st.selectbox("ChatGPT/AI - Character count accuracy:", ["Always","Usually","Often","Always wrong"])
-character_accuracy_dropdown = st.selectbox("Dropdown tool - Character count accuracy:", ["Always","Usually","Often","Always wrong"])
+character_accuracy_scratch = st.selectbox(
+    "Writing from scratch - Character count accuracy:",
+    ["Always within range","Usually within range","Sometimes exceeds range","Exceeds range","Did not use"]
+)
+character_accuracy_ai = st.selectbox(
+    "ChatGPT/AI - Character count accuracy:",
+    ["Always within range","Usually within range","Sometimes exceeds range","Exceeds range","Did not use"]
+)
+character_accuracy_dropdown = st.selectbox(
+    "Dropdown tool - Character count accuracy:",
+    ["Always within range","Usually within range","Sometimes exceeds range","Exceeds range","Did not use"]
+)
 
-curriculum_alignment_scratch = st.selectbox("Writing from scratch - Curriculum alignment:", ["Always","Usually","Sometimes","Rarely"])
-curriculum_alignment_ai = st.selectbox("ChatGPT/AI - Curriculum alignment:", ["Always","Usually","Sometimes","Rarely"])
-curriculum_alignment_dropdown = st.selectbox("Dropdown tool - Curriculum alignment:", ["Always","Usually","Sometimes","Rarely"])
+curriculum_alignment_scratch = st.selectbox(
+    "Writing from scratch - Curriculum alignment:",
+    ["Always","Usually","Sometimes","Rarely","Did not use"]
+)
+curriculum_alignment_ai = st.selectbox(
+    "ChatGPT/AI - Curriculum alignment:",
+    ["Always","Usually","Sometimes","Rarely","Did not use"]
+)
+curriculum_alignment_dropdown = st.selectbox(
+    "Dropdown tool - Curriculum alignment:",
+    ["Always","Usually","Sometimes","Rarely","Did not use"]
+)
 
 # SECTION 6: Stress Level
-stress_scratch = st.selectbox("Stress level - Writing from scratch:", ["Very high","High","Moderate","Low"])
-stress_ai = st.selectbox("Stress level - ChatGPT/AI prompts:", ["Very high","High","Moderate","Low"])
-stress_dropdown = st.selectbox("Stress level - Dropdown tool:", ["Very high","High","Moderate","Low"])
+stress_scratch = st.selectbox("Stress level - Writing from scratch:", ["Very high","High","Moderate","Low","Did not use"])
+stress_ai = st.selectbox("Stress level - ChatGPT/AI prompts:", ["Very high","High","Moderate","Low","Did not use"])
+stress_dropdown = st.selectbox("Stress level - Dropdown tool:", ["Very high","High","Moderate","Low","Did not use"])
 
 # SECTION 7: Other Comparisons
 biggest_cognitive_relief = st.selectbox("Biggest cognitive relief from dropdown tool:", [
@@ -150,7 +189,6 @@ if st.button("Submit Survey"):
             "open_feedback_tool": open_feedback_tool,
             "suggestions": suggestions
         }
-        # Use pd.concat instead of deprecated append()
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         df.to_csv(csv_file, index=False)
         st.success("Survey submitted! Thank you for your feedback.")
