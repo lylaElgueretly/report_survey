@@ -3,6 +3,14 @@ import streamlit as st
 import pandas as pd
 import os
 
+# --- SESSION STATE FOR SAFE RERUN ---
+if "submitted" not in st.session_state:
+    st.session_state.submitted = False
+
+if st.session_state.submitted:
+    st.session_state.submitted = False
+    st.experimental_rerun()
+
 # CSV file path
 csv_file = "survey_data.csv"
 
@@ -192,7 +200,7 @@ if st.button("Submit Survey"):
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         df.to_csv(csv_file, index=False)
         st.success("Survey submitted! Thank you for your feedback.")
-        st.experimental_rerun()  # Reset form inputs
+        st.session_state.submitted = True  # safe rerun
 
 # --- BASIC CHARTS ---
 st.header("Quick Analysis of Responses")
