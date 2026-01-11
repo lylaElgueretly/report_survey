@@ -2,9 +2,8 @@
 import streamlit as st
 import pandas as pd
 import os
-import plotly.express as px
 from io import BytesIO
-import xlsxwriter
+import plotly.express as px
 
 # --- SESSION STATE ---
 if "submitted" not in st.session_state:
@@ -13,7 +12,7 @@ if "submitted" not in st.session_state:
 # CSV file path
 csv_file = "survey_data.csv"
 
-# Columns
+# Survey columns
 columns = [
     "name","methods",
     "time_scratch","time_ai","time_school_bank","time_dropdown",
@@ -121,15 +120,14 @@ st.header("Survey Analysis & Full Report")
 df = pd.read_csv(csv_file)
 
 if not df.empty:
-    charts = {}
+    st.subheader("Interactive Charts")
     def create_chart(columns_list, title, order=None):
         temp = df[columns_list].melt(var_name="Method", value_name="Response")
         fig = px.histogram(temp, x="Method", color="Response", barmode="group", text_auto=True, category_orders={"Response": order})
         fig.update_layout(title=title, xaxis_title="", yaxis_title="Count")
-        charts[title] = fig
         st.plotly_chart(fig, use_container_width=True)
 
-    # Quantitative charts
+    # Charts
     create_chart(["time_scratch","time_ai","time_school_bank","time_dropdown"], "Time per Comment", order=["<30sec","<2min","2-5min","5-10min","10+min","1-2min","2+min","Did not use"])
     create_chart(["cognitive_scratch","cognitive_ai","cognitive_dropdown"], "Cognitive Effort", order=["Very low","Low","Moderate","High","Exhausting","Did not use"])
     create_chart(["stress_scratch","stress_ai","stress_dropdown"], "Stress Level", order=["Low","Moderate","High","Very high","Did not use"])
@@ -137,47 +135,28 @@ if not df.empty:
     create_chart(["character_accuracy_scratch","character_accuracy_ai","character_accuracy_dropdown"], "Character Accuracy", order=["Always within range","Usually within range","Sometimes exceeds range","Exceeds range","Did not use"])
     create_chart(["curriculum_alignment_scratch","curriculum_alignment_ai","curriculum_alignment_dropdown"], "Curriculum Alignment", order=["Always","Usually","Sometimes","Rarely","Did not use"])
 
-    # --- Create Excel report ---
+    # --- Excel Export ---
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # Raw Data sheet
+        # Raw data
         df.to_excel(writer, sheet_name='Raw Data', index=False)
 
-        workbook = writer.book
-
-        # Charts sheet
-        chart_sheet = workbook.add_worksheet("Charts")
-        writer.sheets['Charts'] = chart_sheet
-        row = 0
-        for title, fig in charts.items():
-            img_bytes = fig.to_image(format="png")
-            chart_sheet.insert_image(row, 0, title + ".png", {'image_data': BytesIO(img_bytes)})
-            row += 20
-
         # Summary sheet
-        summary_sheet = workbook.add_worksheet("Summary")
-        writer.sheets['Summary'] = summary_sheet
-        summary_text = f"Total respondents: {len(df)}\n\n"
-        # Count method usage
-        for method in ["Writing from scratch","ChatGPT/AI prompts","School comment banks","Dropdown tool"]:
-            used = df['methods'].str.contains(method).sum()
-            summary_text += f"{method}: used by {used}, not used by {len(df)-used}\n"
-        # Most reported cognitive relief
-        summary_text += "\nMost reported cognitive relief: "
-        if not df['biggest_cognitive_relief'].dropna().empty:
-            summary_text += df['biggest_cognitive_relief'].value_counts().idxmax()
-        summary_sheet.write(0,0, summary_text)
+        summary_data = {}
+        for col in ["time_scratch","time_ai","time_school_bank","time_dropdown",
+                    "cognitive_scratch","cognitive_ai","cognitive_dropdown",
+                    "stress_scratch","stress_ai","stress_dropdown",
+                    "quality_scratch","quality_ai","quality_dropdown",
+                    "character_accuracy_scratch","character_accuracy_ai","character_accuracy_dropdown",
+                    "curriculum_alignment_scratch","curriculum_alignment_ai","curriculum_alignment_dropdown"]:
+            counts = df[col].value_counts(dropna=False)
+            summary_data[col] = counts
 
-        # Qualitative responses sheet
-        qual_sheet = workbook.add_worksheet("Qualitative Responses")
-        writer.sheets['Qualitative Responses'] = qual_sheet
-        qual_sheet.write_row(0,0, ["open_feedback_ai","open_feedback_tool","suggestions"])
-        for i, row_data in enumerate(df[["open_feedback_ai","open_feedback_tool","suggestions"]].values, start=1):
-            qual_sheet.write_row(i,0,row_data.tolist())
+        # Convert summary_data to DataFrame and save
+        summary_df = pd.DataFrame({k:v for k,v in summary_data.items()})
+        summary_df.to_excel(writer, sheet_name='Summary')
 
-    # --- Download button ---
-    st.download_button(
-        "Download Full Report (Excel)",
-        data=output.getvalue(),
-        file_name="full_survey_report.xlsx"
-    )
+        # Qualitative responses
+        df[["open_feedback_ai","open_feedback_tool","suggestions"]].to_excel(writer, sheet_name='Qualitative Responses', index=False)
+
+    st.download_button("Download Full Survey Report (Excel)", data=output.getvalue(), file_name="full_survey_report.xlsx")
