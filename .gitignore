@@ -1,0 +1,17 @@
+# Python cache files
+__pycache__/
+*.pyc
+
+# Local CSV data
+survey_data.csv
+
+# Jupyter notebook checkpoints (if any)
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Virtual environments (if any)
+venv/
+env/
