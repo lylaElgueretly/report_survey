@@ -121,19 +121,33 @@ df = pd.read_csv(csv_file)
 
 if not df.empty:
     st.subheader("Interactive Charts")
+
     def create_chart(columns_list, title, order=None):
         temp = df[columns_list].melt(var_name="Method", value_name="Response")
         fig = px.histogram(temp, x="Method", color="Response", barmode="group", text_auto=True, category_orders={"Response": order})
         fig.update_layout(title=title, xaxis_title="", yaxis_title="Count")
         st.plotly_chart(fig, use_container_width=True)
 
-    # Charts
+    # Quantitative charts
     create_chart(["time_scratch","time_ai","time_school_bank","time_dropdown"], "Time per Comment", order=["<30sec","<2min","2-5min","5-10min","10+min","1-2min","2+min","Did not use"])
     create_chart(["cognitive_scratch","cognitive_ai","cognitive_dropdown"], "Cognitive Effort", order=["Very low","Low","Moderate","High","Exhausting","Did not use"])
     create_chart(["stress_scratch","stress_ai","stress_dropdown"], "Stress Level", order=["Low","Moderate","High","Very high","Did not use"])
     create_chart(["quality_scratch","quality_ai","quality_dropdown"], "Quality", order=["High & consistent","High quality but inconsistent","High & curriculum-aligned","Generally good","Good, ready to use","Acceptable","Acceptable with minor tweaks","Variable","Too generic","Too generic/not suitable","Haven't used AI","Did not use"])
     create_chart(["character_accuracy_scratch","character_accuracy_ai","character_accuracy_dropdown"], "Character Accuracy", order=["Always within range","Usually within range","Sometimes exceeds range","Exceeds range","Did not use"])
     create_chart(["curriculum_alignment_scratch","curriculum_alignment_ai","curriculum_alignment_dropdown"], "Curriculum Alignment", order=["Always","Usually","Sometimes","Rarely","Did not use"])
+
+    # --- Qualitative Analysis ---
+    st.subheader("Qualitative Responses")
+    qual_cols = ["open_feedback_ai","open_feedback_tool","suggestions"]
+
+    for col in qual_cols:
+        st.markdown(f"**{col.replace('_',' ').title()}:**")
+        st.dataframe(df[[col]].dropna().rename(columns={col:"Response"}))
+        # Word frequency bar chart
+        all_text = " ".join(df[col].dropna().astype(str).tolist()).lower().split()
+        word_freq = pd.Series(all_text).value_counts().head(15)
+        if not word_freq.empty:
+            st.bar_chart(word_freq)
 
     # --- Excel Export ---
     output = BytesIO()
@@ -152,11 +166,10 @@ if not df.empty:
             counts = df[col].value_counts(dropna=False)
             summary_data[col] = counts
 
-        # Convert summary_data to DataFrame and save
         summary_df = pd.DataFrame({k:v for k,v in summary_data.items()})
         summary_df.to_excel(writer, sheet_name='Summary')
 
         # Qualitative responses
-        df[["open_feedback_ai","open_feedback_tool","suggestions"]].to_excel(writer, sheet_name='Qualitative Responses', index=False)
+        df[qual_cols].to_excel(writer, sheet_name='Qualitative Responses', index=False)
 
     st.download_button("Download Full Survey Report (Excel)", data=output.getvalue(), file_name="full_survey_report.xlsx")
