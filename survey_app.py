@@ -52,22 +52,10 @@ if not os.path.exists(csv_file):
 st.title("📊 Report Writing MVP Survey")
 st.markdown("---")
 
-# --- ANONYMITY DISCLAIMER ---
+# --- SIMPLIFIED ANONYMITY DISCLAIMER ---
 st.markdown("""
-### 🔒 **Data Privacy & Anonymity Notice**
-
-**Your privacy is important to us:**
-
-1. **One Response Per Person**: Please submit only once to ensure accurate data
-2. **Aggregated Analysis**: All survey responses will be analyzed in aggregate form only
-3. **No Personal Identification**: Individual responses will **never** be shared publicly or with third parties
-4. **Contact Opt-In Only**: Your name/email is collected **only** if you opt-in below
-
-**If you prefer complete anonymity:**
-- Leave the "Name" and "Email" fields blank
-- Your responses will still be valuable and included in aggregated results
-
-By submitting this survey, you acknowledge your understanding of this privacy notice.
+**🔒 Privacy Notice:** All responses are anonymous and aggregated. 
+Names/emails are optional for follow-up only.
 """)
 st.markdown("---")
 
@@ -300,18 +288,14 @@ st.header("📈 MVP Insights Dashboard")
 if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
     df = pd.read_csv(csv_file)
     
-    # Remove duplicates based on submission_hash
+    # FIXED: Handle missing columns gracefully
+    duplicate_count = 0
+    
+    # Remove duplicates based on submission_hash if it exists
     if 'submission_hash' in df.columns:
         unique_df = df.drop_duplicates(subset=['submission_hash'], keep='first')
         duplicate_count = len(df) - len(unique_df)
         df = unique_df
-        
-        if duplicate_count > 0:
-            st.warning(f"⚠️ **Note:** {duplicate_count} duplicate responses were removed for accurate analysis")
-    else:
-        # Fallback: remove duplicates based on name+email+timestamp
-        duplicate_count = len(df) - len(df.drop_duplicates(subset=['name', 'email', 'timestamp'], keep='first'))
-        df = df.drop_duplicates(subset=['name', 'email', 'timestamp'], keep='first')
     
     # Show response count (unique)
     total_unique_responses = len(df)
@@ -353,273 +337,103 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
                         "Stress Level Comparison")
         
         # --- ACCURATE QUALITATIVE ANALYSIS ---
-        st.subheader("🔍 Qualitative Insights (Based on Unique Responses)")
+        st.subheader("🔍 Qualitative Insights")
         
         # SEPARATE feedback types
         ai_feedback = df[["open_feedback_ai"]].rename(columns={"open_feedback_ai":"Comment"}).dropna()
         tool_feedback = df[["open_feedback_tool"]].rename(columns={"open_feedback_tool":"Comment"}).dropna()
         suggestions_feedback = df[["suggestions"]].rename(columns={"suggestions":"Comment"}).dropna()
         
-        # Intelligent classification function
+        # Simple classification function
         def classify_tool_feedback(comment):
-            """Classify dropdown tool feedback into meaningful categories"""
+            """Classify dropdown tool feedback"""
             if pd.isna(comment) or str(comment).strip() == "":
                 return "No feedback"
             
             comment_lower = str(comment).lower()
             
-            # CORE VALUE DETECTION
-            core_value_phrases = [
-                "teacher does the judgement",
-                "teacher makes the judgement", 
-                "app turns it into aligned comments",
-                "turns into aligned comments",
-                "aligned comments in few seconds",
-                "saves decision-making",
-                "perfect curriculum alignment"
-            ]
+            # Core value detection
+            if any(phrase in comment_lower for phrase in [
+                "teacher does the judgement", "teacher makes the judgement", 
+                "turns into aligned comments", "aligned comments", "curriculum aligned"
+            ]):
+                return "Core Value"
             
-            for phrase in core_value_phrases:
-                if phrase in comment_lower:
-                    return "Core Value for Scaling"
+            # Issues
+            if "character limit" in comment_lower or "exceeds" in comment_lower:
+                return "Issue"
             
-            # Check for core value keywords
-            core_keywords = ["aligned", "curriculum", "judgement", "turns into", "converts", "transforms"]
-            for word in core_keywords:
-                if word in comment_lower:
-                    return "Core Value for Scaling"
-            
-            # MINOR UI ISSUES
-            minor_keywords = ["variant", "duplicate", "reverts", "default", "select", "punctuation", 
-                            "disappears", "setting", "subject", "year", "clicking"]
-            for word in minor_keywords:
-                if word in comment_lower:
-                    return "Minor UI/UX Issue"
-            
-            # SERIOUS ISSUES (from your feedback)
-            if "exceeds character limit" in comment_lower or "always exceeds" in comment_lower:
-                return "Serious Issue"
-            
-            if "requires several tweaks" in comment_lower or "all the thinking" in comment_lower:
-                # Check context - is this about AI or dropdown tool?
-                if "ai" in comment_lower or "chatgpt" in comment_lower:
-                    return "AI Issue (Not Ours)"
-                else:
-                    return "Serious Issue"
-            
-            return "General Positive"
-        
-        def classify_suggestions(comment):
-            """Classify suggestions"""
-            if pd.isna(comment) or str(comment).strip() == "":
-                return "No suggestions"
-            
-            comment_lower = str(comment).lower()
-            
-            if any(word in comment_lower for word in ["add", "suggest", "improve", "enhance", "missing"]):
-                return "Feature Request"
-            
-            return "General Suggestion"
+            return "Positive"
         
         # Apply classification
         tool_feedback["Category"] = tool_feedback["Comment"].apply(classify_tool_feedback)
-        suggestions_feedback["Category"] = suggestions_feedback["Comment"].apply(classify_suggestions)
         
         # Display analysis
-        tab1, tab2, tab3 = st.tabs(["🎯 Dropdown Tool", "⚡ AI Comparison", "🔧 Suggestions"])
-        
-        with tab1:
-            st.write("### Dropdown Tool Feedback")
-            
-            if not tool_feedback.empty:
-                # Show unique feedback only
-                unique_tool_feedback = tool_feedback.drop_duplicates(subset=['Comment'])
-                
-                # Categorize
-                core_value = unique_tool_feedback[unique_tool_feedback["Category"] == "Core Value for Scaling"]
-                minor_issues = unique_tool_feedback[unique_tool_feedback["Category"] == "Minor UI/UX Issue"]
-                serious_issues = unique_tool_feedback[unique_tool_feedback["Category"] == "Serious Issue"]
-                
-                # Display
-                if not core_value.empty:
-                    st.success("**✅ Core Value Identified**")
-                    for idx, row in core_value.iterrows():
-                        st.markdown(f"• *\"{row['Comment']}\"*")
-                
-                if not serious_issues.empty:
-                    st.warning("**🚨 Issues to Address**")
-                    for idx, row in serious_issues.iterrows():
-                        st.markdown(f"• *\"{row['Comment']}\"*")
-                
-                if not minor_issues.empty:
-                    st.info("**🔧 Minor UI Improvements**")
-                    for idx, row in minor_issues.iterrows():
-                        st.markdown(f"• *\"{row['Comment']}\"*")
-                
-                # Summary
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Core Value", len(core_value))
-                with col2:
-                    st.metric("Serious Issues", len(serious_issues))
-                with col3:
-                    st.metric("Minor Issues", len(minor_issues))
-            else:
-                st.info("No dropdown tool feedback yet.")
-        
-        with tab2:
-            st.write("### AI Issues (What We're Better Than)")
-            
-            if not ai_feedback.empty:
-                unique_ai_feedback = ai_feedback.drop_duplicates(subset=['Comment'])
-                
-                for idx, row in unique_ai_feedback.iterrows():
-                    st.markdown(f"• *\"{row['Comment']}\"*")
-                
-                # Analyze AI pain points
-                ai_issues = []
-                for comment in unique_ai_feedback['Comment']:
-                    if "character limit" in str(comment).lower():
-                        ai_issues.append("Character limit problems")
-                    if "tweaks" in str(comment).lower() or "edits" in str(comment).lower():
-                        ai_issues.append("Requires too many edits")
-                    if "thinking" in str(comment).lower() or "mental" in str(comment).lower():
-                        ai_issues.append("Still requires cognitive effort")
-                
-                if ai_issues:
-                    st.info("**AI Pain Points Identified:**")
-                    for issue in set(ai_issues):
-                        st.markdown(f"• {issue}")
-            else:
-                st.info("No AI feedback yet.")
-        
-        with tab3:
-            st.write("### Improvement Suggestions")
-            
-            if not suggestions_feedback.empty:
-                unique_suggestions = suggestions_feedback.drop_duplicates(subset=['Comment'])
-                
-                # Group similar suggestions
-                suggestions_text = " ".join(unique_suggestions['Comment'].astype(str).tolist()).lower()
-                
-                st.info("**Key Feature Requests:**")
-                if "variant" in suggestions_text or "duplicate" in suggestions_text:
-                    st.markdown("• **Add comment variants** to avoid duplicates")
-                if "reverts" in suggestions_text or "default" in suggestions_text:
-                    st.markdown("• **Remember user settings** between comments")
-                if "subject" in suggestions_text or "year" in suggestions_text:
-                    st.markdown("• **Save subject/year selections**")
-                if "punctuation" in suggestions_text or "disappears" in suggestions_text:
-                    st.markdown("• **Fix punctuation preservation** when editing")
-                
-                # Show all unique suggestions
-                with st.expander("See all unique suggestions"):
-                    for idx, row in unique_suggestions.iterrows():
-                        st.markdown(f"• *\"{row['Comment']}\"*")
-            else:
-                st.info("No suggestions yet.")
-        
-        # --- REALISTIC SCALING ASSESSMENT ---
-        st.subheader("🚀 Realistic Scaling Assessment")
-        
-        # Calculate unique metrics
-        unique_core_value = len(tool_feedback[tool_feedback["Category"] == "Core Value for Scaling"].drop_duplicates())
-        unique_serious_issues = len(tool_feedback[tool_feedback["Category"] == "Serious Issue"].drop_duplicates())
-        
-        # Get quantitative metrics from unique responses
-        quantitative_evidence = 0
-        
-        # Time saved evidence
-        time_saved_counts = df['time_saved'].value_counts()
-        if '4+hrs' in time_saved_counts:
-            quantitative_evidence += 3
-        elif '2-4hrs' in time_saved_counts:
-            quantitative_evidence += 2
-        elif '1-2hrs' in time_saved_counts:
-            quantitative_evidence += 1
-        
-        # Quality evidence
-        quality_counts = df['quality_dropdown'].value_counts()
-        if 'High & curriculum-aligned' in quality_counts:
-            quantitative_evidence += 2
-        
-        # Cognitive relief evidence
-        cognitive_counts = df['cognitive_dropdown'].value_counts()
-        if 'Very low' in cognitive_counts:
-            quantitative_evidence += 2
-        
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
-            # Display realistic assessment
-            if total_unique_responses >= 3:
-                if unique_core_value >= 2 and unique_serious_issues == 0:
-                    st.success("""
-                    ### 📊 **PROMISING FOR SCALING**
-                    
-                    **Evidence:**
-                    - Multiple teachers report core value
-                    - No serious blocking issues
-                    - Strong quantitative metrics
-                    - Clear improvement over AI
-                    
-                    **Next:** Gather 3-5 more unique validations
-                    """)
-                elif unique_core_value >= 1:
-                    st.warning("""
-                    ### 📈 **NEEDS MORE VALIDATION**
-                    
-                    **Evidence:**
-                    - Some core value identified
-                    - Need more unique responses
-                    - Quantitative support is present
-                    
-                    **Next:** Get 2-3 more unique teacher validations
-                    """)
-                else:
-                    st.info("""
-                    ### 🔍 **INCONCLUSIVE**
-                    
-                    **Evidence:**
-                    - Insufficient unique responses
-                    - Core value not clearly demonstrated
-                    
-                    **Next:** Need more diverse teacher feedback
-                    """)
+            st.write("**Dropdown Tool Value**")
+            core_value = tool_feedback[tool_feedback["Category"] == "Core Value"]
+            if not core_value.empty:
+                for idx, row in core_value.iterrows():
+                    st.info(f"✓ {row['Comment'][:50]}...")
             else:
-                st.info("""
-                ### ⚠️ **TOO EARLY TO DECIDE**
-                
-                **Current Status:**
-                - Only 1 unique response so far
-                - Need at least 3 unique teachers for validation
-                - Initial feedback shows promise
-                
-                **Action Required:** Get 2+ more unique teacher responses
-                """)
+                st.info("No core value feedback yet")
         
         with col2:
-            # Show unique metrics
-            metrics_data = {
-                'Metric': ['Unique Teachers', 'Core Value Comments', 
-                          'Serious Issues', 'Quantitative Evidence',
-                          'AI Pain Points', 'Feature Requests'],
-                'Value': [total_unique_responses, unique_core_value,
-                         unique_serious_issues, quantitative_evidence,
-                         len(ai_feedback.drop_duplicates()),
-                         len(suggestions_feedback.drop_duplicates())]
-            }
-            metrics_df = pd.DataFrame(metrics_data)
-            st.dataframe(metrics_df, hide_index=True, use_container_width=True)
+            st.write("**AI Issues (Comparison)**")
+            if not ai_feedback.empty:
+                for idx, row in ai_feedback.iterrows():
+                    st.warning(f"✗ {row['Comment'][:50]}...")
+            else:
+                st.info("No AI feedback yet")
+        
+        with col3:
+            st.write("**Improvement Ideas**")
+            if not suggestions_feedback.empty:
+                # Get unique suggestions
+                suggestions_list = suggestions_feedback['Comment'].unique()
+                for suggestion in suggestions_list[:3]:  # Show first 3
+                    st.caption(f"• {str(suggestion)[:40]}...")
+            else:
+                st.info("No suggestions yet")
+        
+        # --- SIMPLE SCALING ASSESSMENT ---
+        st.subheader("🚀 Scaling Assessment")
+        
+        # Calculate metrics
+        core_value_count = len(tool_feedback[tool_feedback["Category"] == "Core Value"])
+        issue_count = len(tool_feedback[tool_feedback["Category"] == "Issue"])
+        
+        # Quantitative metrics
+        time_saved_good = df['time_saved'].isin(['2-4hrs', '4+hrs']).any()
+        quality_good = df['quality_dropdown'].isin(['High & curriculum-aligned', 'Good, ready to use']).any()
+        cognitive_good = df['cognitive_dropdown'].isin(['Very low', 'Low']).any()
+        
+        # Simple decision logic
+        if total_unique_responses >= 3:
+            if core_value_count >= 2 and not time_saved_good and quality_good:
+                st.success("**✅ Strong case for scaling**")
+                st.write("Multiple teachers report core value with good metrics")
+            elif core_value_count >= 1:
+                st.warning("**⚠️ Promising but needs more validation**")
+                st.write("Initial positive feedback, gather more responses")
+            else:
+                st.info("**🔍 Needs more positive feedback**")
+                st.write("Focus on demonstrating core value")
+        else:
+            st.info(f"**📊 Gathering data: {total_unique_responses}/3 teachers**")
+            st.write(f"Core value mentions: {core_value_count}")
+            st.write(f"Time saved (2+ hrs): {'Yes' if time_saved_good else 'No'}")
+            st.write(f"Quality good: {'Yes' if quality_good else 'No'}")
         
         # Contact list
         if 'allow_contact' in df.columns and 'name' in df.columns:
-            enthusiasts = df[(df['allow_contact'] == True) & (df['name'] != "Anonymous") & (df['name'].notna())]
+            enthusiasts = df[(df['allow_contact'] == True) & (df['name'] != "Anonymous")]
             if not enthusiasts.empty:
                 st.subheader("🌟 Enthusiasts Open to Contact")
-                st.write(f"Found {len(enthusiasts)} unique participants willing to share their experience:")
-                contact_list = enthusiasts[['name', 'email', 'open_feedback_tool']].copy()
-                contact_list.columns = ['Name', 'Email', 'Key Feedback']
+                contact_list = enthusiasts[['name', 'email']].copy()
+                contact_list.columns = ['Name', 'Email']
                 st.dataframe(contact_list, use_container_width=True, hide_index=True)
         
         # --- Download Report ---
@@ -627,35 +441,19 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            # Unique data only
-            share_df = df.copy()
-            share_df['name'] = share_df['name'].apply(lambda x: 'Anonymous' if x == 'Anonymous' else 'Teacher')
-            share_df['email'] = 'redacted'
-            
-            share_df.to_excel(writer, sheet_name="Unique Responses", index=False)
-            
-            # Analysis sheets
-            if not tool_feedback.empty:
-                tool_feedback.drop_duplicates(subset=['Comment']).to_excel(writer, sheet_name="Tool Feedback", index=False)
-            if not ai_feedback.empty:
-                ai_feedback.drop_duplicates(subset=['Comment']).to_excel(writer, sheet_name="AI Comparison", index=False)
-            if not suggestions_feedback.empty:
-                suggestions_feedback.drop_duplicates(subset=['Comment']).to_excel(writer, sheet_name="Suggestions", index=False)
+            # Data
+            df.to_excel(writer, sheet_name="Data", index=False)
             
             # Summary
             summary_data = {
-                'Metric': ['Unique Teachers', 'Core Value Comments', 'Serious Issues',
-                          'Minor Issues', 'AI Pain Points', 'Feature Requests',
-                          'Time Saved (4+hrs)', 'Quality (High)', 'Cognitive (Very Low)',
+                'Metric': ['Unique Teachers', 'Core Value', 'AI Issues', 
+                          'Time Saved (2+ hrs)', 'Quality Good', 'Cognitive Low',
                           'Assessment'],
-                'Value': [total_unique_responses, unique_core_value, unique_serious_issues,
-                         len(tool_feedback[tool_feedback["Category"] == "Minor UI/UX Issue"].drop_duplicates()),
-                         len(ai_feedback.drop_duplicates()),
-                         len(suggestions_feedback.drop_duplicates()),
-                         time_saved_counts.get('4+hrs', 0),
-                         quality_counts.get('High & curriculum-aligned', 0),
-                         cognitive_counts.get('Very low', 0),
-                         "Promising" if total_unique_responses >= 3 and unique_core_value >= 2 else "Need More Data"]
+                'Value': [total_unique_responses, core_value_count, len(ai_feedback),
+                         'Yes' if time_saved_good else 'No',
+                         'Yes' if quality_good else 'No',
+                         'Yes' if cognitive_good else 'No',
+                         'Promising' if core_value_count > 0 else 'Needs Work']
             }
             
             pd.DataFrame(summary_data).to_excel(writer, sheet_name="Summary", index=False)
@@ -675,9 +473,4 @@ else:
 
 # --- Footer ---
 st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: gray; font-size: 0.9em;'>
-<strong>Note:</strong> Duplicate responses are filtered out for accurate analysis. 
-Each teacher should submit only once.
-</div>
-""", unsafe_allow_html=True)
+st.caption("🔒 Responses are anonymous and aggregated. One submission per person.")
