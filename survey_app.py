@@ -327,7 +327,7 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
             "saves", "fast", "quick", "seconds", "minutes", "efficient", "speedy",
             "aligned", "curriculum", "professional", "consistent", "accurate",
             "judgement", "thinking", "decision", "mental", "cognitive", "stress", "relief",
-            "automated", "automates", "turns into", "transforms", "converts"
+            "automated", "automates", "turns into", "transforms", "converts", "better"
         ]
         
         for word in scaling_keywords:
@@ -347,7 +347,8 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         # SERIOUS ISSUES (blocking)
         serious_issues = [
             "exceeds character limit", "always exceeds", "character limit", 
-            "requires several tweaks", "all the thinking", "does all the thinking"
+            "requires several tweaks", "all the thinking", "does all the thinking",
+            "not working", "broken", "crash", "error", "fails"
         ]
         
         for phrase in serious_issues:
@@ -471,73 +472,168 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         else:
             st.info("No suggestions yet.")
     
-    # --- SCALING RECOMMENDATION ---
-    st.subheader("🚀 Scaling Recommendation")
+    # --- IMPROVED SCALING RECOMMENDATION ---
+    st.subheader("🚀 Scaling Recommendation Analysis")
     
     if not tool_feedback.empty:
         # Calculate metrics for decision
         core_value_count = len(tool_feedback[tool_feedback["Category"] == "Core Value for Scaling"])
         serious_issues_count = len(tool_feedback[tool_feedback["Category"] == "Serious Issue"])
+        minor_issues_count = len(tool_feedback[tool_feedback["Category"] == "Minor UI/UX Issue"])
         total_tool_feedback = len(tool_feedback)
         
-        # Decision logic
+        # Calculate quantitative metrics for decision
+        quantitative_score = 0
+        
+        # Time saved metrics
+        time_saved_counts = df['time_saved'].value_counts()
+        if '4+hrs' in time_saved_counts:
+            quantitative_score += 3
+        if '2-4hrs' in time_saved_counts:
+            quantitative_score += 2
+        if '1-2hrs' in time_saved_counts:
+            quantitative_score += 1
+        
+        # Quality metrics
+        quality_counts = df['quality_dropdown'].value_counts()
+        if 'High & curriculum-aligned' in quality_counts:
+            quantitative_score += 2
+        if 'Good, ready to use' in quality_counts:
+            quantitative_score += 1
+        
+        # Cognitive relief metrics
+        cognitive_counts = df['cognitive_dropdown'].value_counts()
+        if 'Very low' in cognitive_counts:
+            quantitative_score += 2
+        if 'Low' in cognitive_counts:
+            quantitative_score += 1
+        
+        # Decision logic based on MULTIPLE factors
         col1, col2 = st.columns(2)
         
         with col1:
-            if core_value_count > 0 and serious_issues_count == 0:
+            # Create scoring system
+            score = 0
+            
+            # 1. Core value strength
+            if core_value_count >= 2:
+                score += 3
+            elif core_value_count == 1:
+                score += 1
+            
+            # 2. Issue severity
+            if serious_issues_count == 0:
+                score += 2
+            elif serious_issues_count == 1:
+                score -= 1
+            else:
+                score -= 3
+            
+            # 3. Quantitative support
+            if quantitative_score >= 5:
+                score += 2
+            elif quantitative_score >= 3:
+                score += 1
+            
+            # 4. Response volume
+            if total_responses >= 5:
+                score += 1
+            
+            # Make recommendation based on score
+            if score >= 5:
                 st.success("""
-                ### ✅ **RECOMMENDATION: SCALE NOW**
+                ### ✅ **STRONG RECOMMENDATION: SCALE NOW**
                 
                 **Why:**
-                - Strong core value identified
+                - Multiple core value indicators
+                - Strong quantitative support
                 - No serious blocking issues
-                - Minor UI issues can be fixed while scaling
+                - Minor issues can be fixed during scaling
+                
+                **Confidence: High**
                 """)
-            elif core_value_count > 0 and serious_issues_count > 0:
+            elif score >= 3:
                 st.warning("""
-                ### ⚠️ **RECOMMENDATION: FIX THEN SCALE**
+                ### ⚠️ **MODERATE RECOMMENDATION: ITERATE THEN SCALE**
                 
                 **Why:**
-                - Strong core value identified
-                - But serious issues need fixing first
-                - Fix blocking issues before scaling
+                - Some core value identified
+                - Need to fix minor issues first
+                - Consider gathering more feedback
+                
+                **Next: Fix UI issues, then scale**
                 """)
-            elif core_value_count == 0:
-                st.error("""
-                ### ❌ **RECOMMENDATION: NEEDS MORE VALIDATION**
+            elif score >= 1:
+                st.warning("""
+                ### ⚠️ **WEAK RECOMMENDATION: FIX SERIOUS ISSUES FIRST**
                 
                 **Why:**
-                - No clear core value identified yet
-                - Need more feedback or pivot
+                - Serious issues need attention
+                - Core value unclear or weak
+                - Quantitative metrics mixed
+                
+                **Next: Fix serious issues, re-evaluate**
                 """)
             else:
-                st.info("""
-                ### 🔄 **RECOMMENDATION: ITERATE & VALIDATE**
+                st.error("""
+                ### ❌ **NOT READY TO SCALE**
                 
                 **Why:**
-                - Mixed feedback
+                - Insufficient core value evidence
+                - Serious blocking issues
                 - Need more validation
+                
+                **Next: Pivot or gather more feedback**
                 """)
         
         with col2:
-            # Quick metrics
-            metrics_df = pd.DataFrame({
-                'Metric': ['Core Value Comments', 'Serious Issues', 'Minor Issues', 'Total Feedback'],
-                'Count': [core_value_count, serious_issues_count, 
-                         len(tool_feedback[tool_feedback["Category"] == "Minor UI/UX Issue"]),
-                         total_tool_feedback]
-            })
+            # Display detailed metrics
+            metrics_data = {
+                'Factor': ['Core Value Comments', 'Serious Issues', 'Minor Issues', 
+                          'Total Tool Feedback', 'Quantitative Score', 'Total Responses',
+                          'AI Negatives', 'Enthusiasts (Contact Opt-in)'],
+                'Value': [core_value_count, serious_issues_count, minor_issues_count,
+                         total_tool_feedback, quantitative_score, total_responses,
+                         len(ai_feedback[ai_feedback["Sentiment"] == "Negative"]) if not ai_feedback.empty else 0,
+                         opt_in_count]
+            }
+            metrics_df = pd.DataFrame(metrics_data)
             st.dataframe(metrics_df, hide_index=True, use_container_width=True)
+            
+            # Show scoring breakdown
+            with st.expander("**Scoring Breakdown**"):
+                st.write("""
+                **Scoring System:**
+                - Core Value (2+ comments): +3 points
+                - Core Value (1 comment): +1 point
+                - No Serious Issues: +2 points
+                - 1 Serious Issue: -1 point
+                - 2+ Serious Issues: -3 points
+                - Strong Quantitative (≥5): +2 points
+                - Moderate Quantitative (≥3): +1 point
+                - Good Response Volume (≥5): +1 point
+                
+                **Thresholds:**
+                - ≥5: Scale Now
+                - 3-4: Iterate Then Scale  
+                - 1-2: Fix Issues First
+                - ≤0: Not Ready
+                """)
     
-    # Contact list for enthusiasts
+    # Contact list for enthusiasts (WITH FIXED ERROR HANDLING)
+    enthusiasts_available = False
+    enthusiasts_df = pd.DataFrame()
+    
     if 'allow_contact' in df.columns and 'name' in df.columns:
-        enthusiasts = df[(df['allow_contact'] == True) & (df['name'] != "Anonymous")]
-        if not enthusiasts.empty:
-            st.subheader("🌟 Enthusiasts Open to Contact")
-            st.write(f"Found {len(enthusiasts)} participants willing to share their experience:")
-            contact_list = enthusiasts[['name', 'email', 'open_feedback_tool']].copy()
-            contact_list.columns = ['Name', 'Email', 'Key Feedback']
-            st.dataframe(contact_list, use_container_width=True, hide_index=True)
+        enthusiasts_df = df[(df['allow_contact'] == True) & (df['name'] != "Anonymous") & (df['name'].notna())]
+        enthusiasts_available = not enthusiasts_df.empty
+    
+    if enthusiasts_available:
+        st.subheader("🌟 Enthusiasts Open to Contact")
+        st.write(f"Found {len(enthusiasts_df)} participants willing to share their experience:")
+        contact_list = enthusiasts_df[['name', 'email', 'open_feedback_tool']].copy()
+        contact_list.columns = ['Name', 'Email', 'Key Feedback']
+        st.dataframe(contact_list, use_container_width=True, hide_index=True)
     
     # --- Download Enhanced Report ---
     st.subheader("📥 Download Full Report")
@@ -562,12 +658,15 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         # Summary stats
         summary_data = {
             'Metric': ['Total Responses', 'Opted for Contact', 'Core Value Comments', 
-                      'Serious Issues', 'Minor Issues', 'AI Negative Feedback'],
+                      'Serious Issues', 'Minor Issues', 'AI Negative Feedback',
+                      'Scoring Recommendation', 'Quantitative Score'],
             'Value': [total_responses, opt_in_count,
                      len(tool_feedback[tool_feedback["Category"] == "Core Value for Scaling"]) if not tool_feedback.empty else 0,
                      len(tool_feedback[tool_feedback["Category"] == "Serious Issue"]) if not tool_feedback.empty else 0,
                      len(tool_feedback[tool_feedback["Category"] == "Minor UI/UX Issue"]) if not tool_feedback.empty else 0,
-                     len(ai_feedback[ai_feedback["Sentiment"] == "Negative"]) if not ai_feedback.empty else 0]
+                     len(ai_feedback[ai_feedback["Sentiment"] == "Negative"]) if not ai_feedback.empty else 0,
+                     "Scale Now" if core_value_count >= 2 and serious_issues_count == 0 else "Needs Improvement",
+                     quantitative_score]
         }
         
         pd.DataFrame(summary_data).to_excel(writer, sheet_name="Summary", index=False)
@@ -585,11 +684,11 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         help="Includes separated feedback analysis for better decision making"
     )
     
-    # Internal contact list (separate download)
-    if not enthusiasts.empty:
+    # Internal contact list (separate download) - WITH FIX
+    if enthusiasts_available:
         contact_output = io.BytesIO()
         with pd.ExcelWriter(contact_output, engine="xlsxwriter") as writer:
-            enthusiasts.to_excel(writer, sheet_name="Contact List", index=False)
+            enthusiasts_df.to_excel(writer, sheet_name="Contact List", index=False)
             writer.close()
             contact_data = contact_output.getvalue()
         
