@@ -4,6 +4,8 @@ import pandas as pd
 import plotly.express as px
 import os
 from textblob import TextBlob
+from datetime import datetime
+import io
 
 # --- CSV setup ---
 csv_file = "survey_data.csv"
@@ -304,125 +306,228 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         create_chart(["stress_scratch","stress_ai","stress_dropdown"], 
                     "Stress Level Comparison")
     
-    # --- Enhanced Qualitative Analysis ---
-    st.subheader("🔍 Advanced Qualitative Analysis")
+    # --- INTELLIGENT QUALITATIVE ANALYSIS ---
+    st.subheader("🔍 Qualitative Insights for Scaling Decision")
     
-    # Create qualitative dataframe
-    qualitative_comments = pd.concat([
-        df[["open_feedback_ai"]].rename(columns={"open_feedback_ai":"Comment"}),
-        df[["open_feedback_tool"]].rename(columns={"open_feedback_tool":"Comment"}),
-        df[["suggestions"]].rename(columns={"suggestions":"Comment"})
-    ], ignore_index=True).dropna()
+    # SEPARATE feedback types (not aggregated together)
+    ai_feedback = df[["open_feedback_ai"]].rename(columns={"open_feedback_ai":"Comment"}).dropna()
+    tool_feedback = df[["open_feedback_tool"]].rename(columns={"open_feedback_tool":"Comment"}).dropna()
+    suggestions_feedback = df[["suggestions"]].rename(columns={"suggestions":"Comment"}).dropna()
     
-    # Enhanced classification function
-    def classify_comment_advanced(comment):
+    # Intelligent classification function
+    def classify_tool_feedback(comment):
+        """Classify dropdown tool feedback into meaningful categories"""
         if pd.isna(comment) or str(comment).strip() == "":
             return "No feedback"
         
         comment_lower = str(comment).lower()
-        categories = []
         
-        # Comprehensive theme detection
-        themes = {
-            "Time Efficiency": ["fast", "quick", "seconds", "minutes", "saves time", "time saved", "efficient", "speedy"],
-            "Cognitive Relief": ["thinking", "decision", "mental", "effort", "cognitive", "stress", "anxiety", "relief", "easy"],
-            "Quality": ["quality", "aligned", "curriculum", "accurate", "consistent", "professional", "well-written"],
-            "Technical Issues": ["bug", "glitch", "error", "disappears", "reverts", "reset", "default", "duplicate", "tweak", "adjust"],
-            "Character Limit": ["exceeds", "character limit", "too long", "length", "count", "limit"],
-            "Usability": ["select", "choose", "option", "setting", "preference", "interface", "user friendly"],
-            "Feature Request": ["add", "suggest", "improve", "enhance", "missing", "need", "should", "could", "would like"],
-            "Positive Comparison": ["better than", "prefer", "improved", "superior", "advantage", "love", "great", "excellent"],
-            "Negative Comparison": ["worse than", "disadvantage", "rather use", "prefer other", "frustrating", "annoying"]
-        }
+        # REAL VALUE FOR SCALING (Core Benefits)
+        scaling_keywords = [
+            "saves", "fast", "quick", "seconds", "minutes", "efficient", "speedy",
+            "aligned", "curriculum", "professional", "consistent", "accurate",
+            "judgement", "thinking", "decision", "mental", "cognitive", "stress", "relief",
+            "automated", "automates", "turns into", "transforms", "converts"
+        ]
         
-        for theme, keywords in themes.items():
-            for keyword in keywords:
-                if keyword in comment_lower:
-                    categories.append(theme)
-                    break
+        for word in scaling_keywords:
+            if word in comment_lower:
+                return "Core Value for Scaling"
         
-        return ", ".join(set(categories)) if categories else "General Feedback"
+        # MINOR TECHNICAL ISSUES (not blocking)
+        minor_issues = [
+            "variant", "duplicate", "reverts", "default", "select", "choos", "punctuation",
+            "disappears", "setting", "subject", "year", "clicking", "additional"
+        ]
+        
+        for word in minor_issues:
+            if word in comment_lower:
+                return "Minor UI/UX Issue"
+        
+        # SERIOUS ISSUES (blocking)
+        serious_issues = [
+            "exceeds character limit", "always exceeds", "character limit", 
+            "requires several tweaks", "all the thinking", "does all the thinking"
+        ]
+        
+        for phrase in serious_issues:
+            if phrase in comment_lower:
+                return "Serious Issue"
+        
+        return "General Positive"
+    
+    def classify_suggestions(comment):
+        """Classify suggestions into feature requests"""
+        if pd.isna(comment) or str(comment).strip() == "":
+            return "No suggestions"
+        
+        comment_lower = str(comment).lower()
+        
+        # Feature enhancement requests
+        feature_requests = [
+            "add", "suggest", "improve", "enhance", "missing", "need", "could",
+            "would like", "should have", "option", "setting", "preference"
+        ]
+        
+        for word in feature_requests:
+            if word in comment_lower:
+                return "Feature Request"
+        
+        return "General Suggestion"
     
     # Apply classification
-    qualitative_comments["Themes"] = qualitative_comments["Comment"].apply(classify_comment_advanced)
+    tool_feedback["Category"] = tool_feedback["Comment"].apply(classify_tool_feedback)
+    suggestions_feedback["Category"] = suggestions_feedback["Comment"].apply(classify_suggestions)
     
-    # Sentiment analysis
-    def get_sentiment(text):
-        if pd.isna(text) or str(text).strip() == "":
-            return "Neutral", 0
-        try:
-            analysis = TextBlob(str(text))
-            pol = analysis.sentiment.polarity
-            if pol > 0.2:
-                return "Positive", pol
-            elif pol < -0.1:
-                return "Negative", pol
-            else:
-                return "Neutral", pol
-        except:
-            return "Neutral", 0
+    # Display in tabs for clear separation
+    tab1, tab2, tab3 = st.tabs(["🎯 Dropdown Tool Value", "⚡ AI Comparison", "🔧 Improvement Ideas"])
     
-    qualitative_comments[["Sentiment", "Polarity"]] = qualitative_comments["Comment"].apply(
-        lambda x: pd.Series(get_sentiment(x))
-    )
-    
-    # Priority scoring
-    def calculate_priority_score(row):
-        score = 0
-        themes = str(row["Themes"]).lower()
+    with tab1:
+        st.write("### Dropdown Tool Feedback (Scaling Decision)")
         
-        if "technical issues" in themes:
-            score += 3
-        if "character limit" in themes:
-            score += 2
-        if row["Sentiment"] == "Negative":
-            score += 2
-        if "feature request" in themes:
-            score += 1
-        
-        return score
-    
-    qualitative_comments["Priority"] = qualitative_comments.apply(calculate_priority_score, axis=1)
-    
-    # Display qualitative insights
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.write("**Feedback Themes Analysis**")
-        theme_counts = qualitative_comments["Themes"].str.split(", ").explode().value_counts()
-        fig = px.bar(theme_counts.head(10), title="Top 10 Feedback Themes")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.write("**Sentiment Analysis**")
-        sentiment_counts = qualitative_comments["Sentiment"].value_counts()
-        fig = px.pie(values=sentiment_counts.values, names=sentiment_counts.index, 
-                     title="Overall Sentiment Distribution")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Priority Matrix
-    st.subheader("🚨 Priority Improvement Matrix")
-    priority_data = qualitative_comments.sort_values("Priority", ascending=False)
-    
-    tabs = st.tabs(["High Priority", "All Feedback"])
-    
-    with tabs[0]:
-        high_priority = priority_data[priority_data["Priority"] >= 3]
-        if not high_priority.empty:
-            st.dataframe(
-                high_priority[["Comment", "Themes", "Sentiment", "Priority"]],
-                use_container_width=True,
-                hide_index=True
-            )
+        if not tool_feedback.empty:
+            # Show core value comments
+            core_value = tool_feedback[tool_feedback["Category"] == "Core Value for Scaling"]
+            if not core_value.empty:
+                st.success("**✅ Core Value for Scaling**")
+                for idx, row in core_value.iterrows():
+                    st.markdown(f"• *\"{row['Comment']}\"*")
+            
+            # Show minor issues
+            minor_issues = tool_feedback[tool_feedback["Category"] == "Minor UI/UX Issue"]
+            if not minor_issues.empty:
+                st.info("**🔧 Minor UI/UX Issues**")
+                for idx, row in minor_issues.iterrows():
+                    st.markdown(f"• *\"{row['Comment']}\"*")
+            
+            # Show serious issues
+            serious_issues = tool_feedback[tool_feedback["Category"] == "Serious Issue"]
+            if not serious_issues.empty:
+                st.warning("**🚨 Serious Issues to Fix**")
+                for idx, row in serious_issues.iterrows():
+                    st.markdown(f"• *\"{row['Comment']}\"*")
+            
+            # Show general positives
+            general_positives = tool_feedback[tool_feedback["Category"] == "General Positive"]
+            if not general_positives.empty:
+                st.info("**👍 General Positive Feedback**")
+                for idx, row in general_positives.iterrows():
+                    st.markdown(f"• *\"{row['Comment']}\"*")
+            
+            # Summary metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Core Value Comments", len(core_value))
+            with col2:
+                st.metric("Minor Issues", len(minor_issues))
+            with col3:
+                st.metric("Serious Issues", len(serious_issues))
         else:
-            st.info("No high-priority issues identified!")
+            st.info("No dropdown tool feedback yet.")
     
-    with tabs[1]:
-        st.dataframe(
-            priority_data[["Comment", "Themes", "Sentiment", "Priority"]],
-            use_container_width=True,
-            hide_index=True
-        )
+    with tab2:
+        st.write("### AI Feedback (For Comparison Only)")
+        st.info("This shows what AI does WRONG - helps compare against our dropdown tool")
+        
+        if not ai_feedback.empty:
+            for idx, row in ai_feedback.iterrows():
+                st.markdown(f"• *\"{row['Comment']}\"*")
+            
+            # Quick sentiment on AI feedback
+            def get_ai_sentiment(comment):
+                try:
+                    analysis = TextBlob(str(comment))
+                    return "Negative" if analysis.sentiment.polarity < 0 else "Neutral"
+                except:
+                    return "Neutral"
+            
+            ai_feedback["Sentiment"] = ai_feedback["Comment"].apply(get_ai_sentiment)
+            negative_count = (ai_feedback["Sentiment"] == "Negative").sum()
+            
+            st.metric("AI Negative Feedback", negative_count, 
+                     f"{negative_count}/{len(ai_feedback)} comments")
+        else:
+            st.info("No AI feedback yet.")
+    
+    with tab3:
+        st.write("### Suggestions & Feature Requests")
+        
+        if not suggestions_feedback.empty:
+            # Show feature requests
+            feature_requests = suggestions_feedback[suggestions_feedback["Category"] == "Feature Request"]
+            if not feature_requests.empty:
+                st.info("**📋 Feature Requests**")
+                for idx, row in feature_requests.iterrows():
+                    st.markdown(f"• *\"{row['Comment']}\"*")
+            
+            # Show other suggestions
+            other_suggestions = suggestions_feedback[suggestions_feedback["Category"] != "Feature Request"]
+            if not other_suggestions.empty:
+                st.info("**💡 Other Suggestions**")
+                for idx, row in other_suggestions.iterrows():
+                    st.markdown(f"• *\"{row['Comment']}\"*")
+            
+            st.metric("Total Suggestions", len(suggestions_feedback))
+        else:
+            st.info("No suggestions yet.")
+    
+    # --- SCALING RECOMMENDATION ---
+    st.subheader("🚀 Scaling Recommendation")
+    
+    if not tool_feedback.empty:
+        # Calculate metrics for decision
+        core_value_count = len(tool_feedback[tool_feedback["Category"] == "Core Value for Scaling"])
+        serious_issues_count = len(tool_feedback[tool_feedback["Category"] == "Serious Issue"])
+        total_tool_feedback = len(tool_feedback)
+        
+        # Decision logic
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if core_value_count > 0 and serious_issues_count == 0:
+                st.success("""
+                ### ✅ **RECOMMENDATION: SCALE NOW**
+                
+                **Why:**
+                - Strong core value identified
+                - No serious blocking issues
+                - Minor UI issues can be fixed while scaling
+                """)
+            elif core_value_count > 0 and serious_issues_count > 0:
+                st.warning("""
+                ### ⚠️ **RECOMMENDATION: FIX THEN SCALE**
+                
+                **Why:**
+                - Strong core value identified
+                - But serious issues need fixing first
+                - Fix blocking issues before scaling
+                """)
+            elif core_value_count == 0:
+                st.error("""
+                ### ❌ **RECOMMENDATION: NEEDS MORE VALIDATION**
+                
+                **Why:**
+                - No clear core value identified yet
+                - Need more feedback or pivot
+                """)
+            else:
+                st.info("""
+                ### 🔄 **RECOMMENDATION: ITERATE & VALIDATE**
+                
+                **Why:**
+                - Mixed feedback
+                - Need more validation
+                """)
+        
+        with col2:
+            # Quick metrics
+            metrics_df = pd.DataFrame({
+                'Metric': ['Core Value Comments', 'Serious Issues', 'Minor Issues', 'Total Feedback'],
+                'Count': [core_value_count, serious_issues_count, 
+                         len(tool_feedback[tool_feedback["Category"] == "Minor UI/UX Issue"]),
+                         total_tool_feedback]
+            })
+            st.dataframe(metrics_df, hide_index=True, use_container_width=True)
     
     # Contact list for enthusiasts
     if 'allow_contact' in df.columns and 'name' in df.columns:
@@ -437,9 +542,6 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
     # --- Download Enhanced Report ---
     st.subheader("📥 Download Full Report")
     
-    import io
-    from datetime import datetime
-    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         # Raw data (anonymized for sharing)
@@ -448,20 +550,30 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         share_df['email'] = 'redacted'
         
         share_df.to_excel(writer, sheet_name="Aggregated Data", index=False)
-        qualitative_comments.to_excel(writer, sheet_name="Qualitative Analysis", index=False)
+        
+        # Separate qualitative sheets
+        if not tool_feedback.empty:
+            tool_feedback.to_excel(writer, sheet_name="Tool Feedback", index=False)
+        if not ai_feedback.empty:
+            ai_feedback.to_excel(writer, sheet_name="AI Comparison", index=False)
+        if not suggestions_feedback.empty:
+            suggestions_feedback.to_excel(writer, sheet_name="Suggestions", index=False)
         
         # Summary stats
         summary_data = {
-            'Metric': ['Total Responses', 'Opted for Contact', 'Average Sentiment Score', 
-                      'Most Common Theme', 'Top Priority Issue'],
-            'Value': [total_responses, opt_in_count, 
-                     qualitative_comments['Polarity'].mean(),
-                     theme_counts.index[0] if len(theme_counts) > 0 else 'N/A',
-                     priority_data.iloc[0]['Comment'][:50] + '...' if len(priority_data) > 0 else 'N/A']
+            'Metric': ['Total Responses', 'Opted for Contact', 'Core Value Comments', 
+                      'Serious Issues', 'Minor Issues', 'AI Negative Feedback'],
+            'Value': [total_responses, opt_in_count,
+                     len(tool_feedback[tool_feedback["Category"] == "Core Value for Scaling"]) if not tool_feedback.empty else 0,
+                     len(tool_feedback[tool_feedback["Category"] == "Serious Issue"]) if not tool_feedback.empty else 0,
+                     len(tool_feedback[tool_feedback["Category"] == "Minor UI/UX Issue"]) if not tool_feedback.empty else 0,
+                     len(ai_feedback[ai_feedback["Sentiment"] == "Negative"]) if not ai_feedback.empty else 0]
         }
+        
         pd.DataFrame(summary_data).to_excel(writer, sheet_name="Summary", index=False)
         
-        writer.save()
+        writer.close()
+        
         processed_data = output.getvalue()
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -470,7 +582,7 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         data=processed_data,
         file_name=f"mvp_survey_report_{timestamp}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        help="Includes aggregated data, qualitative analysis, and summary statistics"
+        help="Includes separated feedback analysis for better decision making"
     )
     
     # Internal contact list (separate download)
@@ -478,7 +590,7 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         contact_output = io.BytesIO()
         with pd.ExcelWriter(contact_output, engine="xlsxwriter") as writer:
             enthusiasts.to_excel(writer, sheet_name="Contact List", index=False)
-            writer.save()
+            writer.close()
             contact_data = contact_output.getvalue()
         
         st.download_button(
