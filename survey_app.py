@@ -219,8 +219,53 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
     st.metric("📊 Unique Teacher Responses", total_responses, f"{opt_in_count} open to contact")
     
     if total_responses > 0:
-        # --- QUANTITATIVE INSIGHTS ---
-        st.subheader("📈 Quantitative Evidence")
+        # --- QUANTITATIVE CHARTS ---
+        st.subheader("📊 Quantitative Comparison Charts")
+        
+        # Time efficiency comparison
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Time chart
+            time_columns = ["time_scratch", "time_ai", "time_school_bank", "time_dropdown"]
+            time_df = df[time_columns].melt(var_name="Method", value_name="Time")
+            time_df['Method'] = time_df['Method'].str.replace('_', ' ').str.title()
+            fig_time = px.histogram(time_df, x="Method", color="Time", barmode="group",
+                                  title="⏱️ Time per Comment Comparison", text_auto=True)
+            st.plotly_chart(fig_time, use_container_width=True)
+        
+        with col2:
+            # Cognitive effort chart
+            cognitive_columns = ["cognitive_scratch", "cognitive_ai", "cognitive_dropdown"]
+            cognitive_df = df[cognitive_columns].melt(var_name="Method", value_name="Effort")
+            cognitive_df['Method'] = cognitive_df['Method'].str.replace('_', ' ').str.title()
+            fig_cognitive = px.histogram(cognitive_df, x="Method", color="Effort", barmode="group",
+                                       title="🧠 Mental Effort Comparison", text_auto=True)
+            st.plotly_chart(fig_cognitive, use_container_width=True)
+        
+        # Quality and stress charts
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Quality chart
+            quality_columns = ["quality_scratch", "quality_ai", "quality_dropdown"]
+            quality_df = df[quality_columns].melt(var_name="Method", value_name="Quality")
+            quality_df['Method'] = quality_df['Method'].str.replace('_', ' ').str.title()
+            fig_quality = px.histogram(quality_df, x="Method", color="Quality", barmode="group",
+                                     title="⭐ Output Quality Comparison", text_auto=True)
+            st.plotly_chart(fig_quality, use_container_width=True)
+        
+        with col2:
+            # Stress chart
+            stress_columns = ["stress_scratch", "stress_ai", "stress_dropdown"]
+            stress_df = df[stress_columns].melt(var_name="Method", value_name="Stress")
+            stress_df['Method'] = stress_df['Method'].str.replace('_', ' ').str.title()
+            fig_stress = px.histogram(stress_df, x="Method", color="Stress", barmode="group",
+                                    title="😓 Stress Level Comparison", text_auto=True)
+            st.plotly_chart(fig_stress, use_container_width=True)
+        
+        # --- QUANTITATIVE METRICS ---
+        st.subheader("📈 Key Quantitative Metrics")
         
         col1, col2, col3, col4 = st.columns(4)
         
@@ -244,8 +289,9 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         
         with col4:
             alignment_always = (df['curriculum_alignment_dropdown'] == 'Always').sum()
-            st.metric("🎯 Curriculum Alignment", f"{alignment_always}/{total_responses} Always", 
-                     "Perfect alignment")
+            accuracy_within = (df['character_accuracy_dropdown'] == 'Within range').sum()
+            st.metric("🎯 Accuracy", f"{alignment_always}/{total_responses} Aligned", 
+                     f"{accuracy_within} Within limit")
         
         # --- QUALITATIVE INSIGHTS WITH ANALYSIS ---
         st.subheader("🔍 Qualitative Insights")
@@ -259,6 +305,7 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
         st.write("### 🎯 **Core Value for Scaling**")
         
         core_value_found = False
+        core_value_example = ""
         if tool_feedback:
             # Check for core value phrases
             core_value_keywords = [
@@ -270,6 +317,7 @@ if os.path.exists(csv_file) and os.path.getsize(csv_file) > 10:
                 feedback_lower = str(feedback).lower()
                 if any(keyword in feedback_lower for keyword in core_value_keywords):
                     core_value_found = True
+                    core_value_example = feedback
                     st.success(f"""
                     **✅ Core Value Identified:**
                     *"{feedback}"*
