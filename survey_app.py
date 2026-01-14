@@ -358,10 +358,14 @@ with st.form("survey_form", clear_on_submit=True):
             "30min-1hr",
             "1-2hrs",
             "2-4hrs",
-            "4+hrs",
+            "4-6hrs",
+            "6-8hrs",
+            "8-12hrs",
+            "12-24hrs",
+            "24+hrs",
             "Didn't use"
         ])
-    
+        
     st.divider()
     
     # Section 8: Open Feedback
