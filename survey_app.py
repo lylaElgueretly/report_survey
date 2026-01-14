@@ -15,6 +15,7 @@ import hashlib
 
 columns = [
     "submission_id", "name", "email", "allow_contact", "methods",
+    "num_classes", "num_students",  # NEW: Added teaching context
     "time_scratch", "time_ai", "time_school_bank", "time_dropdown",
     "cognitive_scratch", "cognitive_ai", "cognitive_dropdown",
     "quality_scratch", "quality_ai", "quality_dropdown",
@@ -22,6 +23,7 @@ columns = [
     "curriculum_alignment_scratch", "curriculum_alignment_ai", "curriculum_alignment_dropdown",
     "stress_scratch", "stress_ai", "stress_dropdown",
     "biggest_cognitive_relief", "biggest_time_quality", "time_saved",
+    "custom_hours_saved",  # NEW: Added custom hours option
     "open_feedback_ai", "open_feedback_tool", "suggestions",
     "timestamp"
 ]
@@ -227,6 +229,28 @@ with st.form("survey_form", clear_on_submit=True):
     
     allow_contact = st.checkbox("I'm open to follow-up interviews (optional)")
     
+    # NEW SECTION: Teaching Context
+    st.header("Your Teaching Context")
+    col1, col2 = st.columns(2)
+    with col1:
+        num_classes = st.number_input(
+            "How many classes do you write reports for?",
+            min_value=1,
+            max_value=20,
+            value=1,
+            step=1,
+            help="Number of different classes you need to write reports for"
+        )
+    with col2:
+        num_students = st.number_input(
+            "Approximately how many students in total?",
+            min_value=1,
+            max_value=500,
+            value=30,
+            step=1,
+            help="Total number of students you write reports for"
+        )
+    
     st.divider()
     
     # Section 2: Methods Used
@@ -353,14 +377,29 @@ with st.form("survey_form", clear_on_submit=True):
         ])
     
     with col3:
-        time_saved = st.selectbox("Time saved for 30 students:", [
+        time_saved = st.selectbox("Time saved for your class size:", [
             "No time saved",
             "30min-1hr",
             "1-2hrs",
             "2-4hrs",
             "4+hrs",
+            "Custom hours (specify below)",
             "Didn't use"
         ])
+    
+    # NEW: Custom hours input
+    if time_saved == "Custom hours (specify below)":
+        custom_hours_saved = st.number_input(
+            "Enter the approximate time saved (in hours):",
+            min_value=0.0,
+            max_value=100.0,
+            value=5.0,
+            step=0.5,
+            format="%.1f",
+            help="Example: 4.5 for four and a half hours"
+        )
+    else:
+        custom_hours_saved = None
     
     st.divider()
     
@@ -410,6 +449,8 @@ if submitted and not st.session_state.submitted:
         "email": email if email else "",
         "allow_contact": allow_contact,
         "methods": ", ".join(methods),
+        "num_classes": num_classes,  # NEW
+        "num_students": num_students,  # NEW
         "time_scratch": time_scratch,
         "time_ai": time_ai,
         "time_school_bank": time_school_bank,
@@ -432,6 +473,7 @@ if submitted and not st.session_state.submitted:
         "biggest_cognitive_relief": biggest_cognitive_relief,
         "biggest_time_quality": biggest_time_quality,
         "time_saved": time_saved,
+        "custom_hours_saved": custom_hours_saved if custom_hours_saved is not None else "",  # NEW
         "open_feedback_ai": open_feedback_ai,
         "open_feedback_tool": open_feedback_tool,
         "suggestions": suggestions
@@ -510,23 +552,30 @@ if st.sidebar.checkbox("View Analytics", False):
             df = pd.read_csv(persistence.master_file)
             
             if len(df) > 0:
-                # Summary metrics
-                col1, col2, col3, col4 = st.columns(4)
+                # Summary metrics - UPDATED with new fields
+                col1, col2, col3, col4, col5 = st.columns(5)
                 with col1:
                     st.metric("Total Responses", len(df))
                 with col2:
                     contact_count = df['allow_contact'].sum() if 'allow_contact' in df.columns else 0
                     st.metric("Open to Contact", contact_count)
                 with col3:
-                    time_saved_4hrs = (df['time_saved'] == '4+hrs').sum() if 'time_saved' in df.columns else 0
-                    st.metric("4+ Hours Saved", time_saved_4hrs)
+                    avg_classes = df['num_classes'].mean().round(1) if 'num_classes' in df.columns else 0
+                    st.metric("Avg Classes", avg_classes)
                 with col4:
-                    quality_high = (df['quality_dropdown'] == 'High & curriculum-aligned').sum() if 'quality_dropdown' in df.columns else 0
-                    st.metric("High Quality", quality_high)
+                    avg_students = df['num_students'].mean().round(0) if 'num_students' in df.columns else 0
+                    st.metric("Avg Students", int(avg_students))
+                with col5:
+                    # Count custom hours entries
+                    custom_hours_count = df['custom_hours_saved'].notna().sum() if 'custom_hours_saved' in df.columns else 0
+                    st.metric("Custom Hours", custom_hours_count)
                 
-                # Recent submissions
+                # Recent submissions - UPDATED to show new data
                 st.subheader("Recent Submissions")
-                st.dataframe(df[['timestamp', 'name', 'time_saved', 'biggest_time_quality']].tail(10))
+                display_cols = ['timestamp', 'name', 'num_classes', 'num_students', 'time_saved', 'custom_hours_saved']
+                # Filter to only include columns that exist
+                available_cols = [col for col in display_cols if col in df.columns]
+                st.dataframe(df[available_cols].tail(10))
                 
                 # Time saved chart
                 if 'time_saved' in df.columns:
@@ -545,6 +594,26 @@ if st.sidebar.checkbox("View Analytics", False):
                     file_name="survey_data_full.csv",
                     mime="text/csv"
                 )
+                
+                # Show custom hours analysis if available
+                if 'custom_hours_saved' in df.columns and df['custom_hours_saved'].notna().any():
+                    st.subheader("Custom Hours Analysis")
+                    # Filter out empty values and convert to numeric
+                    custom_hours = pd.to_numeric(df['custom_hours_saved'], errors='coerce')
+                    custom_hours = custom_hours.dropna()
+                    if len(custom_hours) > 0:
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Avg Custom Hours", f"{custom_hours.mean():.1f}")
+                        with col2:
+                            st.metric("Max Hours", f"{custom_hours.max():.1f}")
+                        with col3:
+                            st.metric("Min Hours", f"{custom_hours.min():.1f}")
+                        
+                        # Show individual entries
+                        with st.expander("View Individual Custom Hour Entries"):
+                            custom_df = df[df['custom_hours_saved'].notna()][['name', 'num_classes', 'num_students', 'custom_hours_saved']]
+                            st.dataframe(custom_df)
             else:
                 st.info("No data available for analysis yet.")
         else:
