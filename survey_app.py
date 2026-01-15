@@ -1,35 +1,19 @@
-# survey_app.py
+# survey_app_email_csv.py
 import streamlit as st
 import pandas as pd
 import os
+import json
 import time
+import hashlib
 from datetime import datetime
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 
-# ===============================
-# 1. LOAD SECRETS
-# ===============================
-EMAIL = st.secrets["EMAIL"]
-EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
-EMAIL_RECEIVER = st.secrets.get("EMAIL_RECEIVER", EMAIL)  # optional: send to a different email
-
-# ===============================
-# 2. SETUP
-# ===============================
-st.set_page_config(
-    page_title="Report Writing MVP Validation Survey",
-    layout="wide"
-)
-
-# Make directories
-os.makedirs("data", exist_ok=True)
-
-# Master CSV file
-MASTER_FILE = "data/survey_data_master.csv"
-
-# Columns
+# ------------------------------
+# 1. COLUMN DEFINITIONS
+# ------------------------------
 columns = [
     "submission_id", "name", "email", "allow_contact", "methods",
     "time_scratch", "time_ai", "time_school_bank", "time_dropdown",
@@ -43,164 +27,142 @@ columns = [
     "timestamp"
 ]
 
-# Initialize CSV if not exists
-if not os.path.exists(MASTER_FILE):
-    pd.DataFrame(columns=columns).to_csv(MASTER_FILE, index=False)
+# ------------------------------
+# 2. DATA PERSISTENCE CLASS
+# ------------------------------
+class DataPersistence:
+    def __init__(self):
+        self.submission_count = 0
+        os.makedirs("data", exist_ok=True)
+        os.makedirs("backups", exist_ok=True)
+        os.makedirs("daily_backups", exist_ok=True)
+        self.master_file = "data/survey_data_master.csv"
+        if not os.path.exists(self.master_file):
+            pd.DataFrame(columns=columns).to_csv(self.master_file, index=False)
+        else:
+            try:
+                df = pd.read_csv(self.master_file)
+                self.submission_count = len(df)
+            except:
+                self.submission_count = 0
 
-# ===============================
-# 3. MAIN SURVEY
-# ===============================
+    def save_submission(self, data):
+        self.submission_count += 1
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data['timestamp'] = timestamp
+        data['submission_id'] = hashlib.md5(f"{timestamp}{data.get('email','')}".encode()).hexdigest()[:8]
+
+        # Save to master CSV
+        try:
+            df_master = pd.read_csv(self.master_file) if os.path.exists(self.master_file) else pd.DataFrame(columns=columns)
+            df_master = pd.concat([df_master, pd.DataFrame([data])], ignore_index=True)
+            df_master.to_csv(self.master_file, index=False)
+            master_success = True
+        except Exception as e:
+            master_success = False
+            st.error(f"Save error: {str(e)[:100]}")
+
+        # Daily backup CSV
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        daily_file = f"daily_backups/survey_{date_str}.csv"
+        try:
+            if os.path.exists(daily_file):
+                df_daily = pd.read_csv(daily_file)
+                df_daily = pd.concat([df_daily, pd.DataFrame([data])], ignore_index=True)
+            else:
+                df_daily = pd.DataFrame([data])
+            df_daily.to_csv(daily_file, index=False)
+        except:
+            pass
+
+        # JSON backup
+        json_file = f"backups/survey_{timestamp.replace(':', '-')}.json"
+        try:
+            with open(json_file, 'w') as f:
+                json.dump(data, f, indent=2, default=str)
+        except:
+            pass
+
+        st.session_state.last_submission = {
+            'time': timestamp,
+            'id': data['submission_id'],
+            'name': data.get('name', 'Anonymous'),
+            'success': master_success
+        }
+        return master_success
+
+# ------------------------------
+# 3. STREAMLIT APP CONFIG
+# ------------------------------
+st.set_page_config(
+    page_title="Report Writing MVP Survey",
+    layout="wide"
+)
+
+if 'submitted' not in st.session_state:
+    st.session_state.submitted = False
+if 'last_submission' not in st.session_state:
+    st.session_state.last_submission = None
+
+persistence = DataPersistence()
+
+# ------------------------------
+# 4. SURVEY FORM
+# ------------------------------
 st.title("Report Writing MVP Validation Survey")
-st.write("Your feedback helps improve our tool. All responses are anonymous unless you choose to share contact information.")
-st.write("Data is automatically saved with multiple backups.")
+st.write("Your feedback helps improve our tool. Responses are saved locally and emailed to the admin.")
 
 with st.form("survey_form", clear_on_submit=True):
-    # --- Contact Info ---
     st.header("Your Information")
     col1, col2 = st.columns(2)
     with col1:
-        name = st.text_input("Your Name (optional)", placeholder="e.g., Alex Johnson")
+        name = st.text_input("Your Name (optional)")
     with col2:
-        email = st.text_input("Email (optional)", placeholder="e.g., name@school.edu")
+        email = st.text_input("Email (optional)")
     allow_contact = st.checkbox("I'm open to follow-up interviews (optional)")
 
-    st.divider()
-
-    # --- Methods ---
-    st.header("Methods Used")
+    st.header("Methods You've Used")
     methods = st.multiselect(
         "Select all methods you've used for report writing:",
-        ["Writing from scratch", "ChatGPT/AI prompts", "School comment banks",
+        ["Writing from scratch", "ChatGPT/AI prompts", "School comment banks", 
          "Previous year's comments", "Dropdown tool", "Other"]
     )
 
-    st.divider()
-
-    # --- Time Efficiency ---
     st.header("Time Efficiency")
     col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        time_scratch = st.selectbox("From scratch:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
-    with col2:
-        time_ai = st.selectbox("AI prompts:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
-    with col3:
-        time_school_bank = st.selectbox("School banks:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
-    with col4:
-        time_dropdown = st.selectbox("Dropdown tool:", ["<30sec","30sec-1min","1-2min","2+min","Didn't use"])
+    with col1: time_scratch = st.selectbox("From scratch:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
+    with col2: time_ai = st.selectbox("AI prompts:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
+    with col3: time_school_bank = st.selectbox("School banks:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
+    with col4: time_dropdown = st.selectbox("Dropdown tool:", ["<30sec","30sec-1min","1-2min","2+min","Didn't use"])
 
-    st.divider()
-
-    # --- Cognitive Effort ---
     st.header("Mental Effort")
     col1, col2, col3 = st.columns(3)
-    with col1:
-        cognitive_scratch = st.selectbox("From scratch:", ["Exhausting","High","Moderate","Low","Didn't use"])
-    with col2:
-        cognitive_ai = st.selectbox("AI prompts:", ["Exhausting","High","Moderate","Low","Didn't use"])
-    with col3:
-        cognitive_dropdown = st.selectbox("Dropdown tool:", ["Very low","Low","Moderate","High","Didn't use"])
+    with col1: cognitive_scratch = st.selectbox("From scratch:", ["Exhausting","High","Moderate","Low","Didn't use"])
+    with col2: cognitive_ai = st.selectbox("AI prompts:", ["Exhausting","High","Moderate","Low","Didn't use"])
+    with col3: cognitive_dropdown = st.selectbox("Dropdown tool:", ["Very low","Low","Moderate","High","Didn't use"])
 
-    st.divider()
-
-    # --- Quality ---
     st.header("Output Quality")
     col1, col2, col3 = st.columns(3)
-    with col1:
-        quality_scratch = st.selectbox("From scratch:", 
-            ["High quality and consistent", "High quality but inconsistent", "Generally good", "Variable", "Often rushed/generic", "Didn't use"])
-    with col2:
-        quality_ai = st.selectbox("AI prompts:", 
-            ["High after edits", "Good with minor tweaks", "Acceptable", "Too generic/not suitable", "Haven't used AI", "Didn't use"])
-    with col3:
-        quality_dropdown = st.selectbox("Dropdown tool:", 
-            ["High & curriculum-aligned", "Good, ready to use", "Acceptable with minor tweaks", "Too generic", "Didn't use"])
+    with col1: quality_scratch = st.selectbox("From scratch:", ["High quality", "Moderate", "Low", "Didn't use"])
+    with col2: quality_ai = st.selectbox("AI prompts:", ["High quality", "Moderate", "Low", "Didn't use"])
+    with col3: quality_dropdown = st.selectbox("Dropdown tool:", ["High quality", "Moderate", "Low", "Didn't use"])
 
-    st.divider()
-
-    # --- Character Accuracy ---
-    st.header("Specific Metrics")
-    st.subheader("Character Accuracy")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        character_accuracy_scratch = st.radio("From scratch:", ["Within range", "Exceeds range", "Didn't use"])
-    with col2:
-        character_accuracy_ai = st.radio("AI prompts:", ["Within range", "Exceeds range", "Didn't use"])
-    with col3:
-        character_accuracy_dropdown = st.radio("Dropdown tool:", ["Within range", "Exceeds range", "Didn't use"])
-
-    # --- Curriculum Alignment ---
-    st.subheader("Curriculum Alignment")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        curriculum_alignment_scratch = st.selectbox("From scratch:", ["Always","Usually","Sometimes","Rarely","Didn't use"])
-    with col2:
-        curriculum_alignment_ai = st.selectbox("AI prompts:", ["Always","Usually","Sometimes","Rarely","Didn't use"])
-    with col3:
-        curriculum_alignment_dropdown = st.selectbox("Dropdown tool:", ["Always","Usually","Sometimes","Rarely","Didn't use"])
-
-    # --- Stress ---
-    st.subheader("Stress Level")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        stress_scratch = st.selectbox("From scratch:", ["Very high","High","Moderate","Low","Didn't use"])
-    with col2:
-        stress_ai = st.selectbox("AI prompts:", ["Very high","High","Moderate","Low","Didn't use"])
-    with col3:
-        stress_dropdown = st.selectbox("Dropdown tool:", ["Very high","High","Moderate","Low","Didn't use"])
-
-    st.divider()
-
-    # --- Tool Benefits ---
-    st.header("Dropdown Tool Benefits")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        biggest_cognitive_relief = st.selectbox("Cognitive relief:", [
-            "No need to decide what to include/exclude",
-            "Character count automatically perfect",
-            "No rephrasing/editing needed",
-            "Curriculum-aligned language pre-written",
-            "Clear structure removes blank page stress",
-            "Consistency across all students",
-            "Didn't use"
-        ])
-    with col2:
-        biggest_time_quality = st.selectbox("Best time-to-quality:", [
-            "Writing from scratch",
-            "ChatGPT/AI",
-            "Dropdown tool",
-            "Other",
-            "Didn't use"
-        ])
-    with col3:
-        time_saved = st.selectbox("Time saved for 30 students:", [
-            "No time saved","30min-1hr","1-2hrs","2-4hrs","4-6hrs","6-8hrs","8-12hrs","12-24hrs","24+hrs","Didn't use"
-        ])
-
-    st.divider()
-
-    # --- Open Feedback ---
     st.header("Open Feedback")
     open_feedback_ai = st.text_area("One thing AI does WRONG:", height=80)
     open_feedback_tool = st.text_area("One thing dropdown tool does BETTER:", height=80)
     suggestions = st.text_area("Suggestions for improvement:", height=80)
 
-    st.divider()
-
     submitted = st.form_submit_button("Submit Survey")
 
-# ===============================
-# 4. SUBMISSION HANDLING
-# ===============================
-if submitted:
+# ------------------------------
+# 5. HANDLE SUBMISSION
+# ------------------------------
+if submitted and not st.session_state.submitted:
     if not methods:
-        st.error("Please select at least one method you used.")
+        st.error("Select at least one method.")
         st.stop()
 
-    # Collect data
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    submission_id = f"{int(time.time())}"
-    data = {
-        "submission_id": submission_id,
+    form_data = {
         "name": name or "Anonymous",
         "email": email or "",
         "allow_contact": allow_contact,
@@ -215,46 +177,47 @@ if submitted:
         "quality_scratch": quality_scratch,
         "quality_ai": quality_ai,
         "quality_dropdown": quality_dropdown,
-        "character_accuracy_scratch": character_accuracy_scratch,
-        "character_accuracy_ai": character_accuracy_ai,
-        "character_accuracy_dropdown": character_accuracy_dropdown,
-        "curriculum_alignment_scratch": curriculum_alignment_scratch,
-        "curriculum_alignment_ai": curriculum_alignment_ai,
-        "curriculum_alignment_dropdown": curriculum_alignment_dropdown,
-        "stress_scratch": stress_scratch,
-        "stress_ai": stress_ai,
-        "stress_dropdown": stress_dropdown,
-        "biggest_cognitive_relief": biggest_cognitive_relief,
-        "biggest_time_quality": biggest_time_quality,
-        "time_saved": time_saved,
         "open_feedback_ai": open_feedback_ai,
         "open_feedback_tool": open_feedback_tool,
-        "suggestions": suggestions,
-        "timestamp": timestamp
+        "suggestions": suggestions
     }
 
-    # Save locally
-    df = pd.read_csv(MASTER_FILE)
-    df = pd.concat([df, pd.DataFrame([data])], ignore_index=True)
-    df.to_csv(MASTER_FILE, index=False)
-    st.success("✅ Successfully submitted and saved locally!")
+    with st.spinner("Saving your feedback..."):
+        success = persistence.save_submission(form_data)
 
-    # ===============================
-    # Send Email
-    # ===============================
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL
-        msg['To'] = EMAIL_RECEIVER
-        msg['Subject'] = f"New Survey Submission {submission_id}"
-        body = df.tail(1).to_csv(index=False)
-        msg.attach(MIMEText(body, 'plain'))
+    if success:
+        st.success("Thank you! Your submission was saved.")
 
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(EMAIL, EMAIL_PASSWORD)
-        server.send_message(msg)
-        server.quit()
-        st.success(f"📧 Email sent to {EMAIL_RECEIVER}")
-    except Exception as e:
-        st.error(f"Email failed: {e}")
+        # ------------------------------
+        # 6. EMAIL WITH CSV ATTACHMENT
+        # ------------------------------
+        try:
+            EMAIL = st.secrets["EMAIL"]
+            EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
+            EMAIL_RECEIVER = st.secrets.get("EMAIL_RECEIVER", EMAIL)
+
+            msg = MIMEMultipart()
+            msg['From'] = EMAIL
+            msg['To'] = EMAIL_RECEIVER
+            msg['Subject'] = f"New Survey Submission {st.session_state.last_submission['id']}"
+            body = f"New survey submitted by {name or 'Anonymous'} ({email})."
+            msg.attach(MIMEText(body, 'plain'))
+
+            # Attach the CSV
+            with open(persistence.master_file, "rb") as f:
+                part = MIMEApplication(f.read(), Name="survey_data_master.csv")
+            part['Content-Disposition'] = 'attachment; filename="survey_data_master.csv"'
+            msg.attach(part)
+
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(EMAIL, EMAIL_PASSWORD)
+            server.send_message(msg)
+            server.quit()
+            st.success("Email sent with CSV attached!")
+        except Exception as e:
+            st.error(f"Email failed: {str(e)}")
+
+        st.session_state.submitted = True
+        time.sleep(1)
+        st.experimental_rerun()
