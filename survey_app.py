@@ -1,4 +1,4 @@
-# clean_survey_app_email.py
+# survey_app.py
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -239,12 +239,19 @@ progress = st.progress(0, text="Survey Progress") if not st.session_state.submit
 
 # --- SURVEY FORM ---
 with st.form("survey_form", clear_on_submit=True):
-    # --- [Survey fields same as your original code] ---
-    # For brevity here, copy all survey fields from your previous code
-    # Example:
-    name = st.text_input("Your Name (optional)", placeholder="e.g., Alex Johnson")
-    email = st.text_input("Email (optional)", placeholder="e.g., name@school.edu")
+    # Section 1: Contact Information
+    st.header("Your Information")
+    col1, col2 = st.columns(2)
+    with col1:
+        name = st.text_input("Your Name (optional)", placeholder="e.g., Alex Johnson")
+    with col2:
+        email = st.text_input("Email (optional)", placeholder="e.g., name@school.edu")
     allow_contact = st.checkbox("I'm open to follow-up interviews (optional)")
+    
+    st.divider()
+    
+    # Section 2: Methods Used
+    st.header("Methods You've Used")
     methods = st.multiselect(
         "Select all methods you've used for report writing:",
         ["Writing from scratch", "ChatGPT/AI prompts", "School comment banks", 
@@ -252,9 +259,149 @@ with st.form("survey_form", clear_on_submit=True):
         placeholder="Choose at least one method"
     )
     
-    # ... (Copy all the rest of your original survey fields here)
-
-    # Submit Button
+    st.divider()
+    
+    # Section 3: Time Comparison
+    st.header("Time Efficiency")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        time_scratch = st.selectbox("From scratch:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
+    with col2:
+        time_ai = st.selectbox("AI prompts:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
+    with col3:
+        time_school_bank = st.selectbox("School banks:", ["<2min","2-5min","5-10min","10+min","Didn't use"])
+    with col4:
+        time_dropdown = st.selectbox("Dropdown tool:", ["<30sec","30sec-1min","1-2min","2+min","Didn't use"])
+    
+    st.divider()
+    
+    # Section 4: Cognitive Effort
+    st.header("Mental Effort")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        cognitive_scratch = st.selectbox("From scratch:", ["Exhausting","High","Moderate","Low","Didn't use"])
+    with col2:
+        cognitive_ai = st.selectbox("AI prompts:", ["Exhausting","High","Moderate","Low","Didn't use"])
+    with col3:
+        cognitive_dropdown = st.selectbox("Dropdown tool:", ["Very low","Low","Moderate","High","Didn't use"])
+    
+    st.divider()
+    
+    # Section 5: Quality Assessment
+    st.header("Output Quality")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        quality_scratch = st.selectbox("From scratch:", 
+            ["High quality and consistent", "High quality but inconsistent", 
+             "Generally good", "Variable", "Often rushed/generic", "Didn't use"])
+    with col2:
+        quality_ai = st.selectbox("AI prompts:", 
+            ["High after edits", "Good with minor tweaks", "Acceptable", 
+             "Too generic/not suitable", "Haven't used AI", "Didn't use"])
+    with col3:
+        quality_dropdown = st.selectbox("Dropdown tool:", 
+            ["High & curriculum-aligned", "Good, ready to use", 
+             "Acceptable with minor tweaks", "Too generic", "Didn't use"])
+    
+    st.divider()
+    
+    # Section 6: Specific Metrics
+    st.header("Specific Metrics")
+    
+    st.subheader("Character Accuracy")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        character_accuracy_scratch = st.radio("From scratch:", ["Within range", "Exceeds range", "Didn't use"])
+    with col2:
+        character_accuracy_ai = st.radio("AI prompts:", ["Within range", "Exceeds range", "Didn't use"])
+    with col3:
+        character_accuracy_dropdown = st.radio("Dropdown tool:", ["Within range", "Exceeds range", "Didn't use"])
+    
+    st.subheader("Curriculum Alignment")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        curriculum_alignment_scratch = st.selectbox("From scratch:", 
+            ["Always", "Usually", "Sometimes", "Rarely", "Didn't use"])
+    with col2:
+        curriculum_alignment_ai = st.selectbox("AI prompts:", 
+            ["Always", "Usually", "Sometimes", "Rarely", "Didn't use"])
+    with col3:
+        curriculum_alignment_dropdown = st.selectbox("Dropdown tool:", 
+            ["Always", "Usually", "Sometimes", "Rarely", "Didn't use"])
+    
+    st.subheader("Stress Level")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        stress_scratch = st.selectbox("From scratch:", 
+            ["Very high", "High", "Moderate", "Low", "Didn't use"])
+    with col2:
+        stress_ai = st.selectbox("AI prompts:", 
+            ["Very high", "High", "Moderate", "Low", "Didn't use"])
+    with col3:
+        stress_dropdown = st.selectbox("Dropdown tool:", 
+            ["Very high", "High", "Moderate", "Low", "Didn't use"])
+    
+    st.divider()
+    
+    # Section 7: Tool Benefits
+    st.header("Dropdown Tool Benefits")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        biggest_cognitive_relief = st.selectbox("Cognitive relief:", [
+            "No need to decide what to include/exclude",
+            "Character count automatically perfect",
+            "No rephrasing/editing needed",
+            "Curriculum-aligned language pre-written",
+            "Clear structure removes blank page stress",
+            "Consistency across all students",
+            "Didn't use"
+        ])
+    
+    with col2:
+        biggest_time_quality = st.selectbox("Best time-to-quality:", [
+            "Writing from scratch",
+            "ChatGPT/AI",
+            "Dropdown tool",
+            "Other",
+            "Didn't use"
+        ])
+    
+    with col3:
+        time_saved = st.selectbox("Time saved for 30 students:", [
+            "No time saved",
+            "30min-1hr",
+            "1-2hrs",
+            "2-4hrs",
+            "4-6hrs",
+            "6-8hrs",
+            "8-12hrs",
+            "12-24hrs",
+            "24+hrs",
+            "Didn't use"
+        ])
+        
+    st.divider()
+    
+    # Section 8: Open Feedback
+    st.header("Open Feedback")
+    open_feedback_ai = st.text_area(
+        "One thing AI does WRONG:", 
+        placeholder="e.g., AI comments often exceed character limits...",
+        height=80
+    )
+    open_feedback_tool = st.text_area(
+        "One thing dropdown tool does BETTER:", 
+        placeholder="e.g., The dropdown tool creates perfectly formatted...",
+        height=80
+    )
+    suggestions = st.text_area(
+        "Suggestions for improvement:", 
+        placeholder="e.g., Add more subject-specific options...",
+        height=80
+    )
+    
+    st.divider()
+    
     submitted = st.form_submit_button("Submit Survey", type="primary", use_container_width=True)
 
 # ============================================================================ 
@@ -266,13 +413,37 @@ if submitted and not st.session_state.submitted:
         st.error("Please select at least one method you've used")
         st.stop()
     
-    # Prepare form_data dict (same as your original code)
+    # Collect all form data
     form_data = {
         "name": name if name else "Anonymous",
         "email": email if email else "",
         "allow_contact": allow_contact,
         "methods": ", ".join(methods),
-        # ... include all other survey fields here exactly as before
+        "time_scratch": time_scratch,
+        "time_ai": time_ai,
+        "time_school_bank": time_school_bank,
+        "time_dropdown": time_dropdown,
+        "cognitive_scratch": cognitive_scratch,
+        "cognitive_ai": cognitive_ai,
+        "cognitive_dropdown": cognitive_dropdown,
+        "quality_scratch": quality_scratch,
+        "quality_ai": quality_ai,
+        "quality_dropdown": quality_dropdown,
+        "character_accuracy_scratch": character_accuracy_scratch,
+        "character_accuracy_ai": character_accuracy_ai,
+        "character_accuracy_dropdown": character_accuracy_dropdown,
+        "curriculum_alignment_scratch": curriculum_alignment_scratch,
+        "curriculum_alignment_ai": curriculum_alignment_ai,
+        "curriculum_alignment_dropdown": curriculum_alignment_dropdown,
+        "stress_scratch": stress_scratch,
+        "stress_ai": stress_ai,
+        "stress_dropdown": stress_dropdown,
+        "biggest_cognitive_relief": biggest_cognitive_relief,
+        "biggest_time_quality": biggest_time_quality,
+        "time_saved": time_saved,
+        "open_feedback_ai": open_feedback_ai,
+        "open_feedback_tool": open_feedback_tool,
+        "suggestions": suggestions
     }
     
     progress.progress(100, text="Saving your response...")
@@ -284,7 +455,7 @@ if submitted and not st.session_state.submitted:
         st.success("## Thank You! Your submission has been saved securely.")
         st.session_state.submitted = True
         
-        # --- EMAIL THE SUBMISSION ---
+        # Email the submission
         send_email(form_data)
         
         time.sleep(2)
@@ -312,20 +483,3 @@ if st.session_state.submitted:
         st.session_state.submitted = False
         st.session_state.last_submission = None
         st.rerun()
-
-# ============================================================================ 
-# 8. DATA ANALYSIS SECTION
-# ============================================================================
-
-# [Same analytics code as before]
-
-# ============================================================================ 
-# 9. FOOTER
-# ============================================================================
-
-st.markdown("---")
-footer_col1, footer_col2 = st.columns(2)
-with footer_col1:
-    st.caption(f"Total submissions: {persistence.submission_count}")
-with footer_col2:
-    st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
