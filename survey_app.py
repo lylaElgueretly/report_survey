@@ -1,3 +1,14 @@
+import streamlit as st
+
+st.set_page_config(page_title="Survey Test")
+
+if st.button("Test Email Secret"):
+    try:
+        st.write("EMAIL found:", st.secrets["EMAIL"])
+        st.success("Secrets loaded correctly!")
+    except KeyError:
+        st.error("EMAIL not found! Check your secrets.toml on Streamlit Cloud.")
+
 # survey_app.py
 import streamlit as st
 import pandas as pd
